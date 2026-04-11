@@ -18,7 +18,7 @@ except ImportError:
 def calculate_distance(seq1, seq2):
     """Calculating the evolutionary distance by finding identity."""
     # Running your global alignment
-    # If your NW returns (aln1, aln2, score), result[0] and result[1] are the strings.
+
     result = needleman_wunsch(seq1, seq2)
 
     # If the result is a tuple, we take the strings.
@@ -62,13 +62,14 @@ def print_matrix(names, matrix):
         print(f"{names[i]}\t{row_str}")
 
 if __name__ == "__main__":
-    # Test dataset: Short sample sequences
-    test_data = {
-        "Seq_A": "GATTACA",
-        "Seq_B": "GATTAGA",
-        "Seq_C": "GATCCCC",
-        "Seq_D": "GATAAAA"
-    }
+    from data_loader import load_fasta
 
-    labels, dist_matrix = generate_matrix(test_data)
-    print_matrix(labels, dist_matrix)
+    # Loading the real Globin dataset
+    real_data = load_fasta("globins.fasta")
+
+    if real_data:
+        # Generating and printing the matrix for biological sequences
+        labels, dist_matrix = generate_matrix(real_data)
+        print_matrix(labels, dist_matrix)
+    else:
+        print("Failed to load data.")
