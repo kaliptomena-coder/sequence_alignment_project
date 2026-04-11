@@ -1,24 +1,48 @@
 def get_minimizers(sequence, k, w):
     """Picking the lexicographically smallest k-mer within every window of size w."""
     minimizers = set()
-    # Sliding a window of size w across the sequence
     for i in range(len(sequence) - w + 1):
         window = sequence[i : i + w]
-        # Finding all k-mers in this window
         kmers_in_window = [window[j : j + k] for j in range(len(window) - k + 1)]
-        # Selecting the 'smallest' k-mer (alphabetical order)
         if kmers_in_window:
             m = min(kmers_in_window)
-            # Storing the minimizer and its position
-            # Finding the first occurrence of this minimizer in the current window
             pos = i + window.find(m)
             minimizers.add((m, pos))
     return minimizers
 
+def align_with_minimizers(query, target, k=3, w=5):
+    """Matching minimizers between two sequences to find alignment anchors."""
+    # Sketching both sequences
+    query_sketch = get_minimizers(query, k, w)
+    target_sketch = get_minimizers(target, k, w)
+
+    # Converting target sketch to a dictionary for fast lookup
+    target_lookup = {}
+    for kmer, pos in target_sketch:
+        if kmer not in target_lookup:
+            target_lookup[kmer] = []
+        target_lookup[kmer].append(pos)
+
+    anchors = []
+    # Finding shared minimizers (anchors)
+    for kmer, q_pos in query_sketch:
+        if kmer in target_lookup:
+            for t_pos in target_lookup[kmer]:
+                # Calculating the relative offset (helps identify diagonal matches)
+                offset = t_pos - q_pos
+                anchors.append((q_pos, t_pos, kmer, offset))
+
+    # Sorting anchors by query position
+    return sorted(anchors, key=lambda x: x[0])
+
 if __name__ == "__main__":
-    seq = "GATTACAGATTACA"
-    # Using k=3 and window=5
-    mins = get_minimizers(seq, 3, 5)
-    print(f"--- Minimizer Sketch for {seq} ---")
-    for m, pos in sorted(list(mins), key=lambda x: x[1]):
-        print(f"Minimizer: {m} at position {pos}")
+    # Defining two sequences with a small mutation
+    seq_q = "GATTACAGATTACA"
+    seq_t = "GATTAGAGATTACA"
+
+    results = align_with_minimizers(seq_q, seq_t, k=3, w=5)
+
+    print(f"--- Minimizer-based Anchors ---")
+    for q_pos, t_pos, kmer, offset in results:
+        status = "Aligned" if offset == 0 else "Shifted"
+        print(f"K-mer: '{kmer}' | Q: {q_pos} -> T: {t_pos} | [{status}]")
