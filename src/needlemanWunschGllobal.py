@@ -8,7 +8,6 @@ def needleman_wunsch(seq1, seq2):
     n = len(seq1)
     m = len(seq2)
 
-    print(f"Размер таблицы будет: {n+1} на {m+1}")
 
     # Создаем матрицу, заполненную нулями
     # Initialize the scoring matrix with zeros
@@ -83,9 +82,9 @@ def needleman_wunsch(seq1, seq2):
     print(align1[::-1])
     print(align2[::-1])
 
-    print(f"Финальный счет (Score): {score_matrix[n][m]}")
+    print(f"Final Score: {score_matrix[n][m]}")
 
-    return score_matrix
+    return align1[::-1], align2[::-1], score_matrix[n][m]
 
 if __name__ == "__main__":
     # Test the algorithm with example sequences
