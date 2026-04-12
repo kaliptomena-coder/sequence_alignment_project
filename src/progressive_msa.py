@@ -56,12 +56,12 @@ if __name__ == "__main__":
     labels, matrix = generate_matrix(data)
     guide_tree = run_upgma(labels, matrix)
 
-    print("\n--- Starting Progressive Alignment ---")
+    print("\n Starting Progressive Alignment ")
 
     # Running the final progressive alignment
     msa_results = perform_progressive_alignment(guide_tree, data)
 
     # Printing the final Multiple Sequence Alignment (MSA)
-    print("\n--- Final Multiple Sequence Alignment ---")
+    print("\n Final Multiple Sequence Alignment ")
     for i, seq in enumerate(msa_results):
         print(f"Sequence {i+1}: {seq}")
