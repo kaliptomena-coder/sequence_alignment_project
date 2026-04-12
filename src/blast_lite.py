@@ -8,22 +8,43 @@ def get_kmers(sequence, k):
         kmers[kmer].append(i)
     return kmers
 
-def extend_match(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=5):
-    """Extending a seed match to the right until the score drops significantly."""
-    r_score = 0
-    max_r_score = 0
+def extend_left(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=5):
+    """Extending a seed match to the left using X-dropoff logic."""
+    l_score, max_l_score = 0, 0
+    l_ext1, l_ext2 = "", ""
+    # Starting from the character immediately before the seed
+    curr_i, curr_j = i - 1, j - 1
+
+    while curr_i >= 0 and curr_j >= 0:
+        # Calculating score for the current pair
+        score_change = match_score if seq1[curr_i] == seq2[curr_j] else mismatch_penalty
+        l_score += score_change
+
+        if l_score > max_l_score:
+            max_l_score = l_score
+        elif l_score < max_l_score - threshold:
+            break
+
+        l_ext1 += seq1[curr_i]
+        l_ext2 += seq2[curr_j]
+        curr_i -= 1
+        curr_j -= 1
+
+    # Reversing strings since they were collected walking backwards
+    return l_ext1[::-1], l_ext2[::-1], max_l_score
+
+def extend_right(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=5):
+    """Extending a seed match to the right using X-dropoff logic."""
+    r_score, max_r_score = 0, 0
     r_ext1, r_ext2 = "", ""
     curr_i, curr_j = i, j
 
     while curr_i < len(seq1) and curr_j < len(seq2):
-        # Checking if characters match or mismatch
         score_change = match_score if seq1[curr_i] == seq2[curr_j] else mismatch_penalty
         r_score += score_change
 
-        # Updating the peak score if the current path is better
         if r_score > max_r_score:
             max_r_score = r_score
-        # Breaking the loop if the score falls too far below the peak (X-dropoff)
         elif r_score < max_r_score - threshold:
             break
 
@@ -35,42 +56,47 @@ def extend_match(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold
     return r_ext1, r_ext2, max_r_score
 
 def blast_lite(query, target, k=3, threshold=5):
-    """Performing a heuristic seed-and-extend alignment between two sequences."""
-    # Indexing the target sequence for fast lookup
+    """Performing a heuristic bidirectional seed-and-extend alignment."""
     target_kmers = get_kmers(target, k)
     hsp_results = []
+    match_val = 2 # Standard match score for calculation
 
-    # Iterating through the query to find potential seeds
     for i in range(len(query) - k + 1):
         query_kmer = query[i:i+k]
 
         if query_kmer in target_kmers:
-            # Checking every location where this seed exists in the target
             for j in target_kmers[query_kmer]:
-                # Sending the coordinates to the extension function
-                ext1, ext2, score = extend_match(query, target, i, j, match_score=2, threshold=threshold)
+                # 1. Getting the left extension (starts before index i and j)
+                l_ext1, l_ext2, l_score = extend_left(query, target, i, j, threshold=threshold)
 
-                # Filtering for results that are stronger than just a random seed match
-                if score > k * 1.5:
+                # 2. Getting the right extension (starts after the k-mer)
+                r_ext1, r_ext2, r_score = extend_right(query, target, i + k, j + k, threshold=threshold)
+
+                # 3. Combining left + seed + right
+                full_ext1 = l_ext1 + query_kmer + r_ext1
+                full_ext2 = l_ext2 + query_kmer + r_ext2
+
+                # Calculating total score (Left + Seed + Right)
+                seed_score = k * match_val
+                total_score = l_score + seed_score + r_score
+
+                if total_score > k * 1.5:
                     hsp_results.append({
-                        "query_pos": i,
-                        "target_pos": j,
-                        "alignment": (ext1, ext2),
-                        "score": score
+                        "query_pos": i - len(l_ext1),
+                        "target_pos": j - len(l_ext2),
+                        "alignment": (full_ext1, full_ext2),
+                        "score": total_score
                     })
 
-    # Returning the best hits sorted by their total score
     return sorted(hsp_results, key=lambda x: x['score'], reverse=True)
 
 if __name__ == "__main__":
-    # Defining sample sequences for verification
     q = "GGAGTCAG"
     t = "GAAGTCGG"
 
     results = blast_lite(q, t, k=3)
 
-    print(f"--- BLAST-style Heuristic Results ---")
-    # Displaying the top unique hits found
+    print(f"--- BLAST-style Bidirectional Results ---")
     seen_alignments = set()
     for res in results:
         if res['alignment'] not in seen_alignments:
