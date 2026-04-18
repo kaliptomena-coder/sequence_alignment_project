@@ -7,18 +7,24 @@ def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-2):
     # Traceback matrix: 'D' (diag), 'U' (up), 'L' (left)
     trace_matrix = [[None]*(m+1) for _ in range(n+1)]
 
+    # Initialization
+    score_matrix[0][0] = 0
+    trace_matrix[0][0] = None
+
     # Initializing boundaries using the provided gap penalty
-    for i in range(n + 1):
+    for i in range(1, n + 1):
         score_matrix[i][0] = i * gap
         trace_matrix[i][0] = 'U'
-    for j in range(m + 1):
+    for j in range(1, m + 1):
         score_matrix[0][j] = j * gap
         trace_matrix[0][j] = 'L'
 
     # Filling the matrix based on dynamic programming rules
     for i in range(1, n + 1):
         for j in range(1, m + 1):
-            diag = score_matrix[i-1][j-1] + (match if seq1[i-1] == seq2[j-1] else mismatch)
+            diag = score_matrix[i-1][j-1] + (
+                match if seq1[i-1] == seq2[j-1] else mismatch
+            )
             up   = score_matrix[i-1][j] + gap
             left = score_matrix[i][j-1] + gap
 
@@ -33,17 +39,18 @@ def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-2):
             else:
                 trace_matrix[i][j] = 'L'
 
-    # Executing traceback to reconstruct the alignment
+    # Traceback from bottom-right (global)
     align1, align2 = "", ""
     i, j = n, m
+
     while i > 0 or j > 0:
-        t = trace_matrix[i][j]
-        if t == 'D':
+
+        if trace_matrix[i][j] == 'D':
             align1 += seq1[i-1]
             align2 += seq2[j-1]
-            i -= 1;
+            i -= 1
             j -= 1
-        elif t=='U':
+        elif trace_matrix[i][j]=='U':
             align1 += seq1[i-1]
             align2 += "-"
             i -= 1
@@ -57,7 +64,7 @@ def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-2):
 if __name__ == "__main__":
     # Defining the sequences to test
     seq_a = "GATTACAACTTG"
-    seq_b = "GATCCAGTTCA"
+    seq_b = "GATCCAGTTCAAA"
 
     # Testing sensitivity to different gap penalties
     gap_penalties = [-1, -2, -5, -10]
