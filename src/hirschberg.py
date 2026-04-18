@@ -20,18 +20,37 @@ def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
     return prev
 
 def nw_small(seq1, seq2, match, mismatch, gap):
-    """Handling base cases for minimal string lengths during recursion."""
-    # Returning all gaps if the first sequence is empty
-    if not seq1: return "-" * len(seq2), seq2
-    # Returning all gaps if the second sequence is empty
-    if not seq2: return seq1, "-" * len(seq1)
+    """Needleman-Wunsch for small cases"""
+    n, m = len(seq1), len(seq2)
+    dp = [[0]*(m+1) for _ in range(n+1)]
 
-    # Returning exact matches if sequences are identical
-    if seq1 == seq2:
-        return seq1, seq2
-    else:
-        # Padding the shorter string with gaps to match lengths
-        return seq1 + "-" * (max(0, len(seq2)-len(seq1))), seq2 + "-" * (max(0, len(seq1)-len(seq2)))
+    for i in range(n+1):
+        dp[i][0] = i * gap
+    for j in range(m+1):
+        dp[0][j] = j * gap
+
+    for i in range(1, n+1):
+        for j in range(1, m+1):
+            s = match if seq1[i-1] == seq2[j-1] else mismatch
+            dp[i][j] = max(
+                dp[i-1][j-1] + s,
+                dp[i-1][j] + gap,
+                dp[i][j-1] + gap
+            )
+
+    # traceback
+    i, j = n, m
+    a1, a2 = "", ""
+
+    while i > 0 or j > 0:
+        if i>0 and j>0 and dp[i][j] == dp[i-1][j-1] + (match if seq1[i-1]==seq2[j-1] else mismatch):
+            a1 += seq1[i-1]; a2 += seq2[j-1]; i-=1; j-=1
+        elif i>0 and dp[i][j] == dp[i-1][j] + gap:
+            a1 += seq1[i-1]; a2 += "-"; i-=1
+        else:
+            a1 += "-"; a2 += seq2[j-1]; j-=1
+
+    return a1[::-1], a2[::-1]
 
 def hirschberg(seq1, seq2, match=2, mismatch=-1, gap=-1):
     """Executing the divide and conquer alignment to achieve linear space complexity."""
