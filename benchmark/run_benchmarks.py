@@ -5,7 +5,7 @@
 #   - Measures peak memory usage with Python's tracemalloc module
 #   - Saves plots you can paste directly into your report
 # =============================================================================
-
+import itertools
 import sys
 import os
 import time
@@ -388,7 +388,49 @@ def make_plots(pairwise_results, pairwise_lengths,
     plt.close()
     print("  Saved: plot_gap_sensitivity.png")
 
+# =============================================================================
+# 9. Biological dataset alignment experiment
+# =============================================================================
 
+def benchmark_all_datasets():
+    """
+    Run alignment benchmarks on real-world biological FASTA files.
+
+    Loads pre-defined datasets, performs pairwise alignments using
+    Smith-Waterman, and prints the resulting alignment scores.
+    """
+    from data_loader import load_fasta
+
+    # Mapping of dataset names to their respective file paths
+    datasets = {
+        'Globins':          os.path.join(PROJECT_ROOT, 'data', 'globins.fasta'),
+        'Cytochrome c':     os.path.join(PROJECT_ROOT, 'data', 'cytochrome_c.fasta'),
+        'Serine Proteases': os.path.join(PROJECT_ROOT, 'data', 'serine_proteases.fasta'),
+        'Synthetic SNPs':   os.path.join(PROJECT_ROOT, 'data', 'synthetic_snps.fasta'),
+    }
+
+    print("\n" + "=" * 60)
+    print("BIOLOGICAL DATASETS ALIGNMENT EXPERIMENT")
+    print("=" * 60)
+
+    for dataset_name, filepath in datasets.items():
+        # Ensure data file exists before attempting to load
+        if not os.path.exists(filepath):
+            print(f"  Skipping {dataset_name}: File {filepath} not found.")
+            continue
+
+        seqs = load_fasta(filepath)
+        names = list(seqs.keys())
+        print(f'\n=== {dataset_name} ({len(seqs)} sequences) ===')
+
+        # Perform all-vs-all pairwise alignment within the dataset
+        for name1, name2 in itertools.combinations(names, 2):
+            seq1, seq2 = seqs[name1], seqs[name2]
+
+            # Use Smith-Waterman to find the local alignment score
+            _, _, score = smith_waterman(seq1, seq2)
+
+            print(f"  {name1} vs {name2} | Score: {score}")
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
@@ -426,7 +468,11 @@ if __name__ == "__main__":
                blast_lengths, blast_times, nw_t,
                gap_vals, gap_scores, gap_counts)
 
+    benchmark_all_datasets()
+
     print("\n" + "=" * 60)
     print("BENCHMARK COMPLETE!")
     print(f"All results saved in: {RESULTS_DIR}")
     print("=" * 60)
+
+
