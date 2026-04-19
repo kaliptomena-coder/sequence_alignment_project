@@ -1,5 +1,4 @@
 # =============================================================================
-# FILE: banded_alignment.py
 # PURPOSE: Banded Needleman-Wunsch alignment (space and time efficient)
 #
 # WHAT IS BANDED ALIGNMENT?
