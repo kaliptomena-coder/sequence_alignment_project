@@ -1,6 +1,4 @@
 # =============================================================================
-# PURPOSE: Banded Needleman-Wunsch alignment (space and time efficient)
-#
 # WHAT IS BANDED ALIGNMENT?
 #   Normal NW fills every cell in an (n+1) x (m+1) matrix → O(n*m) time.
 #   Banded alignment says: "I only care about alignments that stay close
