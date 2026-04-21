@@ -1,3 +1,19 @@
+# =============================================================================
+# Progressive Multiple Sequence Alignment (MSA) using Guide Tree
+#
+# Builds MSA by following a guide tree (UPGMA) from bottom up:
+# - Align two groups via their gap-free representatives (Needleman-Wunsch)
+# - Propagate gap pattern to all sequences in each group using apply_gaps()
+# - Recursively combine until full alignment is built
+#
+# FUNCTIONS:
+# - apply_gaps(seq, ref_ungapped, ref_gapped) → inserts gaps to match reference
+# - perform_progressive_alignment(tree, sequences) → recursive alignment following tree
+#
+# TIME: O(n² * L²) where n=sequences, L=length | SPACE: O(n*L)
+# =============================================================================
+
+
 from data_loader import load_fasta
 from distance_matrix import generate_matrix
 from upgma import run_upgma

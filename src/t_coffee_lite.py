@@ -1,3 +1,16 @@
+# =============================================================================
+# T-Coffee Style Consistency Checker
+#
+# Measures agreement between Global (Needleman-Wunsch) and Local (Smith-Waterman)
+# alignments by comparing aligned residues (ignoring gaps). Higher consistency
+# indicates the two methods agree on which residues should align.
+#
+# FUNCTION:
+# - check_consistency(nw_res, sw_res) → percentage of matching non-gap positions
+#
+# USE CASE: Building consistency libraries for progressive MSA (T-Coffee)
+# =============================================================================
+
 from needlemanWunschGlobal import needleman_wunsch
 from smithWatermanLocal import smith_waterman
 

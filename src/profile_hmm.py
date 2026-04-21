@@ -241,12 +241,10 @@ class ProfileHMM:
 
                 # --- Determine emission log-probability ---
                 if curr_state.startswith('D') or curr_state in ('BEGIN', 'END'):
-                    # Silent states: they don't emit, so we should NOT
-                    # consume a character when transitioning INTO them.
-                    # For simplicity in this implementation, we give them
-                    # emission log-prob = 0 (i.e., prob = 1, no cost).
-                    # A full implementation would handle silent states with
-                    # a separate pass that doesn't advance t.
+                    # Silent states: they don't emit, so we should not
+                    # consume a character when transitioning into them.
+                    # In this implementation, we give them emission log-prob = 0 (i.e., prob = 1, no cost).
+
                     log_emit = 0.0
                 else:
                     # Emitting states: get the probability of seeing `obs`

@@ -1,3 +1,16 @@
+# =============================================================================
+# Smith-Waterman Local Alignment Algorithm
+#
+# Finds the best local alignment (similar subsequences) by allowing free
+# starting/ending points:
+# - Score matrix initialized with zeros
+# - Negative scores replaced with 0 (prevents extension of bad alignments)
+# - Traceback starts from highest score (not bottom-right)
+# - Stops when hitting a zero cell
+#
+# TIME: O(n*m) | SPACE: O(n*m) | TRACEBACK: from max_score to zero
+# =============================================================================
+
 def smith_waterman(seq1, seq2, match=1, mismatch=-1, gap=-2):
     """
     Finding the best local alignment by zeroing out negative scores.

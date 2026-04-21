@@ -1,4 +1,17 @@
-import numpy as np
+# =============================================================================
+# UPGMA (Unweighted Pair Group Method with Arithmetic Mean) Clustering
+#
+# Builds a rooted guide tree from a distance matrix using hierarchical clustering.
+# At each step: find closest pair → merge into new cluster → update distances
+# via arithmetic mean → repeat until one cluster remains.
+#
+# FUNCTIONS:
+# - find_lowest_cell(matrix) → coordinates of minimum distance (excluding diagonal)
+# - update_labels(labels, i, j) → merges two labels into nested tuple (i,j)
+# - run_upgma(labels, matrix) → main loop, returns final nested cluster tree
+#
+# COMPLEXITY: O(n³) naive (n iterations × O(n²) per update)
+# =============================================================================
 
 def find_lowest_cell(matrix):
     """Finding the coordinates of the minimum distance in the matrix."""
