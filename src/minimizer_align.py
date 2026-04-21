@@ -9,33 +9,10 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Try to import NW implementation; fall back to a local copy if not found
-try:
-    from needlemanWunschGlobal import needleman_wunsch
-except ImportError:
-    def needleman_wunsch(s1, s2, match=2, mismatch=-1, gap=-2):
-        """Minimal NW fallback."""
-        n, m = len(s1), len(s2)
-        dp = [[0]*(m+1) for _ in range(n+1)]
-        for i in range(n+1): dp[i][0] = i*gap
-        for j in range(m+1): dp[0][j] = j*gap
-        for i in range(1,n+1):
-            for j in range(1,m+1):
-                s = match if s1[i-1]==s2[j-1] else mismatch
-                dp[i][j] = max(dp[i-1][j-1]+s, dp[i-1][j]+gap, dp[i][j-1]+gap)
-        a1,a2,i,j="","",n,m
-        while i>0 or j>0:
-            if i>0 and j>0 and dp[i][j]==dp[i-1][j-1]+(match if s1[i-1]==s2[j-1] else mismatch):
-                a1+=s1[i-1]; a2+=s2[j-1]; i-=1; j-=1
-            elif i>0 and dp[i][j]==dp[i-1][j]+gap:
-                a1+=s1[i-1]; a2+='-'; i-=1
-            else:
-                a1+='-'; a2+=s2[j-1]; j-=1
-        return a1[::-1], a2[::-1], dp[n][m]
-
+from needlemanWunschGlobal import needleman_wunsch
 
 # =============================================================================
-# 1. Minimizer sketching (same as before, slightly cleaned up)
+# 1. Minimizer sketching
 # =============================================================================
 
 def get_minimizers(sequence, k, w):
@@ -75,7 +52,6 @@ def get_minimizers(sequence, k, w):
 
     return minimizers
 
-
 # =============================================================================
 # 2. Find shared anchors (exact k-mer matches between query and target)
 # =============================================================================
@@ -113,7 +89,6 @@ def find_anchors(query, target, k, w):
     # Sort by query start position
     anchors.sort(key=lambda x: x[0])
     return anchors
-
 
 # =============================================================================
 # 3. CO-LINEAR CHAINING

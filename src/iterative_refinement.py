@@ -1,5 +1,17 @@
 # =============================================================================
-# MUSCLE-style iterative refinement with convergence loop.
+# MUSCLE-style Iterative Refinement for Multiple Sequence Alignment (MSA)
+#
+# Core idea: Repeatedly split MSA into two groups, re-align their gap-free
+# representatives via NW, propagate new gaps to all sequences, accept if
+# Sum-of-Pairs (SP) score improves. Converges when no improvement found.
+#
+# FUNCTIONS:
+# - sum_of_pairs(msa)     → SP score (+1 match, -1 mismatch, -2 gap)
+# - apply_group_gaps()    → transfers new gap pattern to group members
+# - refine_once(msa, nw)  → tries all splits, returns best improvement
+# - iterative_refinement()→ convergence loop around refine_once()
+#
+# COMPLEXITY: O(iterations * n² * L) where n=sequences, L=alignment length
 # =============================================================================
 
 def sum_of_pairs(msa):
@@ -201,7 +213,7 @@ if __name__ == "__main__":
     initial_score = sum_of_pairs(initial_msa)
     print(f"\nInitial SP Score: {initial_score}")
 
-    # Run full iterative refinement (the fixed version with the loop)
+    # Run full iterative refinement
     refined_msa, final_score, history = iterative_refinement(
         initial_msa, needleman_wunsch, max_iterations=20
     )
