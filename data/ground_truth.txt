@@ -1,0 +1,297 @@
+GROUND TRUTH EDIT LOG
+============================================================
+This file describes every synthetic mutation made.
+Use this to verify your alignment algorithms found the edits.
+
+
+[SNP_SEQ_01]
+  Template: TEMPLATE
+  10 SNPs introduced into TEMPLATE
+  • SNP  pos=124  A→T
+  • SNP  pos=293  C→T
+  • SNP  pos=452  C→A
+  • SNP  pos=563  C→T
+  • SNP  pos=615  C→T
+  • SNP  pos=846  C→G
+  • SNP  pos=1067  G→T
+  • SNP  pos=1140  G→C
+  • SNP  pos=1352  T→A
+  • SNP  pos=1942  T→C
+
+[SNP_SEQ_02]
+  Template: TEMPLATE
+  10 SNPs introduced into TEMPLATE
+  • SNP  pos=652  T→A
+  • SNP  pos=780  T→C
+  • SNP  pos=836  G→C
+  • SNP  pos=852  A→C
+  • SNP  pos=1074  G→T
+  • SNP  pos=1317  T→C
+  • SNP  pos=1374  A→C
+  • SNP  pos=1426  G→A
+  • SNP  pos=1609  A→G
+  • SNP  pos=1928  C→T
+
+[SNP_SEQ_03]
+  Template: TEMPLATE
+  10 SNPs introduced into TEMPLATE
+  • SNP  pos=118  G→T
+  • SNP  pos=295  G→A
+  • SNP  pos=845  T→C
+  • SNP  pos=853  G→A
+  • SNP  pos=948  T→C
+  • SNP  pos=1141  A→C
+  • SNP  pos=1151  G→C
+  • SNP  pos=1650  G→T
+  • SNP  pos=1873  G→A
+  • SNP  pos=1982  G→C
+
+[SNP_SEQ_04]
+  Template: TEMPLATE
+  10 SNPs introduced into TEMPLATE
+  • SNP  pos=105  G→T
+  • SNP  pos=189  C→T
+  • SNP  pos=390  T→G
+  • SNP  pos=549  A→C
+  • SNP  pos=759  C→A
+  • SNP  pos=772  A→C
+  • SNP  pos=1096  T→G
+  • SNP  pos=1483  G→T
+  • SNP  pos=1698  C→T
+  • SNP  pos=1734  G→T
+
+[SNP_SEQ_05]
+  Template: TEMPLATE
+  10 SNPs introduced into TEMPLATE
+  • SNP  pos=31  G→A
+  • SNP  pos=427  A→C
+  • SNP  pos=444  T→G
+  • SNP  pos=620  C→A
+  • SNP  pos=681  A→T
+  • SNP  pos=981  T→C
+  • SNP  pos=1780  T→A
+  • SNP  pos=1857  A→T
+  • SNP  pos=1861  G→T
+  • SNP  pos=1959  G→T
+
+[INDEL_SEQ_01]
+  Template: TEMPLATE_INDEL
+  5 insertions + 5 deletions introduced
+  • INS  pos=386  inserted=T
+  • INS  pos=371  inserted=A
+  • INS  pos=358  inserted=A
+  • INS  pos=156  inserted=A
+  • INS  pos=119  inserted=C
+  • DEL  pos=303  deleted=A
+  • DEL  pos=244  deleted=G
+  • DEL  pos=115  deleted=T
+  • DEL  pos=67  deleted=T
+  • DEL  pos=39  deleted=G
+
+[INDEL_SEQ_02]
+  Template: TEMPLATE_INDEL
+  5 insertions + 5 deletions introduced
+  • INS  pos=356  inserted=G
+  • INS  pos=348  inserted=A
+  • INS  pos=265  inserted=T
+  • INS  pos=227  inserted=C
+  • INS  pos=4  inserted=T
+  • DEL  pos=374  deleted=A
+  • DEL  pos=196  deleted=C
+  • DEL  pos=117  deleted=C
+  • DEL  pos=45  deleted=A
+  • DEL  pos=36  deleted=C
+
+[INDEL_SEQ_03]
+  Template: TEMPLATE_INDEL
+  5 insertions + 5 deletions introduced
+  • INS  pos=451  inserted=G
+  • INS  pos=412  inserted=C
+  • INS  pos=188  inserted=T
+  • INS  pos=160  inserted=C
+  • INS  pos=52  inserted=C
+  • DEL  pos=312  deleted=A
+  • DEL  pos=288  deleted=A
+  • DEL  pos=271  deleted=C
+  • DEL  pos=35  deleted=C
+  • DEL  pos=4  deleted=C
+
+[INDEL_SEQ_04]
+  Template: TEMPLATE_INDEL
+  5 insertions + 5 deletions introduced
+  • INS  pos=369  inserted=C
+  • INS  pos=332  inserted=C
+  • INS  pos=225  inserted=T
+  • INS  pos=179  inserted=T
+  • INS  pos=84  inserted=C
+  • DEL  pos=459  deleted=T
+  • DEL  pos=385  deleted=T
+  • DEL  pos=71  deleted=T
+  • DEL  pos=51  deleted=T
+  • DEL  pos=44  deleted=A
+
+[INDEL_SEQ_05]
+  Template: TEMPLATE_INDEL
+  5 insertions + 5 deletions introduced
+  • INS  pos=373  inserted=T
+  • INS  pos=301  inserted=G
+  • INS  pos=196  inserted=C
+  • INS  pos=179  inserted=C
+  • INS  pos=63  inserted=G
+  • DEL  pos=330  deleted=A
+  • DEL  pos=307  deleted=G
+  • DEL  pos=283  deleted=T
+  • DEL  pos=127  deleted=C
+  • DEL  pos=43  deleted=G
+
+[SHUFFLED_01]
+  Template: ORIGINAL
+  Complete random shuffle (negative control). Alignment should find NO meaningful similarity.
+  • All positions permuted randomly
+
+[SHUFFLED_02]
+  Template: ORIGINAL
+  Complete random shuffle (negative control). Alignment should find NO meaningful similarity.
+  • All positions permuted randomly
+
+[SHUFFLED_03]
+  Template: ORIGINAL
+  Complete random shuffle (negative control). Alignment should find NO meaningful similarity.
+  • All positions permuted randomly
+
+[LINEAGE_A_GEN1]
+  Template: ANCESTOR (via LINEAGE_A)
+  Generation 1, 10 SNPs/gen
+  • SNP  pos=7  T→G
+  • SNP  pos=34  Q→C
+  • SNP  pos=40  D→G
+  • SNP  pos=56  Q→G
+  • SNP  pos=75  V→A
+  • SNP  pos=100  A→T
+  • SNP  pos=121  H→C
+  • SNP  pos=136  V→A
+  • SNP  pos=139  D→A
+  • SNP  pos=191  I→A
+
+[LINEAGE_A_GEN2]
+  Template: ANCESTOR (via LINEAGE_A)
+  Generation 2, 10 SNPs/gen
+  • SNP  pos=21  W→G
+  • SNP  pos=53  I→C
+  • SNP  pos=78  P→T
+  • SNP  pos=100  T→G
+  • SNP  pos=137  I→C
+  • SNP  pos=140  G→A
+  • SNP  pos=146  M→C
+  • SNP  pos=152  C→A
+  • SNP  pos=189  A→T
+  • SNP  pos=191  A→G
+  • INS  pos=49  inserted=C
+  • INS  pos=29  inserted=A
+  • DEL  pos=192  deleted=T
+  • DEL  pos=140  deleted=S
+
+[LINEAGE_A_GEN3]
+  Template: ANCESTOR (via LINEAGE_A)
+  Generation 3, 10 SNPs/gen
+  • SNP  pos=17  F→T
+  • SNP  pos=18  F→G
+  • SNP  pos=25  E→G
+  • SNP  pos=50  C→A
+  • SNP  pos=64  S→C
+  • SNP  pos=74  R→A
+  • SNP  pos=118  M→G
+  • SNP  pos=140  A→T
+  • SNP  pos=165  V→A
+  • SNP  pos=171  A→C
+
+[LINEAGE_B_GEN1]
+  Template: ANCESTOR (via LINEAGE_B)
+  Generation 1, 25 SNPs/gen
+  • SNP  pos=1  P→G
+  • SNP  pos=34  Q→T
+  • SNP  pos=39  A→G
+  • SNP  pos=43  C→G
+  • SNP  pos=56  Q→G
+  • SNP  pos=63  Q→G
+  • SNP  pos=70  Y→T
+  • SNP  pos=78  P→A
+  • SNP  pos=80  I→C
+  • SNP  pos=81  N→A
+  • SNP  pos=84  R→G
+  • SNP  pos=92  A→C
+  • SNP  pos=93  G→T
+  • SNP  pos=109  C→A
+  • SNP  pos=111  M→G
+  • SNP  pos=115  E→A
+  • SNP  pos=124  P→A
+  • SNP  pos=144  S→A
+  • SNP  pos=145  M→A
+  • SNP  pos=149  Q→T
+  • SNP  pos=157  F→C
+  • SNP  pos=164  V→A
+  • SNP  pos=168  C→T
+  • SNP  pos=177  T→C
+  • SNP  pos=186  R→T
+
+[LINEAGE_B_GEN2]
+  Template: ANCESTOR (via LINEAGE_B)
+  Generation 2, 25 SNPs/gen
+  • SNP  pos=2  Q→T
+  • SNP  pos=23  R→C
+  • SNP  pos=34  T→A
+  • SNP  pos=35  V→C
+  • SNP  pos=38  K→T
+  • SNP  pos=42  C→G
+  • SNP  pos=57  N→A
+  • SNP  pos=61  M→C
+  • SNP  pos=74  V→T
+  • SNP  pos=93  T→A
+  • SNP  pos=100  A→C
+  • SNP  pos=101  W→G
+  • SNP  pos=118  H→G
+  • SNP  pos=128  P→C
+  • SNP  pos=130  H→A
+  • SNP  pos=131  F→C
+  • SNP  pos=150  H→G
+  • SNP  pos=157  C→G
+  • SNP  pos=167  T→C
+  • SNP  pos=169  Q→T
+  • SNP  pos=175  G→A
+  • SNP  pos=187  C→A
+  • SNP  pos=188  R→G
+  • SNP  pos=196  G→A
+  • SNP  pos=198  I→G
+  • INS  pos=189  inserted=C
+  • INS  pos=67  inserted=T
+  • DEL  pos=167  deleted=K
+  • DEL  pos=96  deleted=E
+
+[LINEAGE_B_GEN3]
+  Template: ANCESTOR (via LINEAGE_B)
+  Generation 3, 25 SNPs/gen
+  • SNP  pos=1  G→A
+  • SNP  pos=19  R→C
+  • SNP  pos=35  C→A
+  • SNP  pos=42  G→A
+  • SNP  pos=57  A→G
+  • SNP  pos=58  F→A
+  • SNP  pos=64  Q→C
+  • SNP  pos=71  T→C
+  • SNP  pos=88  Y→G
+  • SNP  pos=90  Y→A
+  • SNP  pos=93  C→G
+  • SNP  pos=96  T→G
+  • SNP  pos=103  S→T
+  • SNP  pos=112  Y→T
+  • SNP  pos=123  Y→C
+  • SNP  pos=124  A→T
+  • SNP  pos=128  C→A
+  • SNP  pos=131  C→T
+  • SNP  pos=132  P→T
+  • SNP  pos=150  G→A
+  • SNP  pos=154  S→C
+  • SNP  pos=164  A→C
+  • SNP  pos=167  T→A
+  • SNP  pos=195  P→C
+  • SNP  pos=196  A→C

@@ -1,7 +1,7 @@
 import urllib.request
 import os
 
-# Список белков: (ID, Название)
+# List of proteins: (ID, Name)
 proteins = {
     'P00766': 'Chymotrypsinogen A (Bovine)',
     'P00760': 'Trypsin (Bovine)',
@@ -10,14 +10,13 @@ proteins = {
     'P15636': 'Thrombin (Human)'
 }
 
-# Создаем папку data, если её нет
 if not os.path.exists('data'):
     os.makedirs('data')
 
 all_fasta = ''
 
 for acc, name in proteins.items():
-    # Актуальный URL для получения FASTA с UniProt
+    # URL for obtaining FASTA from UniProt
     url = f'https://rest.uniprot.org/uniprotkb/{acc}.fasta'
 
     try:
@@ -28,7 +27,7 @@ for acc, name in proteins.items():
     except Exception as e:
         print(f'Failed to download {acc}: {e}')
 
-# Сохраняем результат
+# Saving Results
 file_path = 'data/serine_proteases.fasta'
 with open(file_path, 'w') as f:
     f.write(all_fasta)
