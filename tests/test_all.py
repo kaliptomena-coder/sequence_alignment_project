@@ -16,7 +16,7 @@ from gotohAffineGap         import gotoh_affine_gap
 from hirschberg             import hirschberg
 from banded_alignment       import banded_nw
 from blast_lite             import blast_lite
-from minimizer_align        import align_with_minimizers
+from minimizer_align        import minimizer_align
 from iterative_refinement   import sum_of_pairs, refine_once
 from profile_hmm            import ProfileHMM
 
@@ -365,30 +365,30 @@ class TestMinimizerAlign:
     """Tests for minimizer-based approximate alignment."""
 
     def test_returns_list(self):
-        """Function should return a list (possibly empty)."""
-        result = align_with_minimizers("GATTACA", "GATTACA", k=3, w=5)
-        assert isinstance(result, list)
+        """Function should return a chain (list) as the 4th element."""
+        _, _, _, chain = minimizer_align("GATTACA", "GATTACA", k=3, w=5)
+        assert isinstance(chain, list)
 
     def test_identical_sequences_finds_anchors(self):
         """Identical sequences should produce anchors."""
-        result = align_with_minimizers("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        assert len(result) > 0, "Should find shared minimizers for identical seqs"
+        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        assert len(chain) > 0, "Should find shared minimizers for identical seqs"
 
     def test_anchor_structure(self):
-        """Each anchor should be a tuple of 4 elements: (q_pos, t_pos, kmer, offset)."""
-        result = align_with_minimizers("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        for anchor in result:
-            assert len(anchor) == 4, f"Anchor should have 4 elements: {anchor}"
-            q_pos, t_pos, kmer, offset = anchor
+        """Each anchor in the chain should be (q_pos, t_pos, length)."""
+        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        for anchor in chain:
+            assert len(anchor) == 3, f"Anchor should have 3 elements: {anchor}"
+            q_pos, t_pos, length = anchor
             assert isinstance(q_pos, int)
             assert isinstance(t_pos, int)
-            assert isinstance(kmer,  str)
+            assert isinstance(length, int)
 
     def test_different_sequences_fewer_anchors(self):
-        """Very different sequences should produce fewer anchors than identical ones."""
-        same_anchors  = align_with_minimizers("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        diff_anchors  = align_with_minimizers("GATTACAGATTACA", "CCCCCCCCCCCCC",  k=3, w=5)
-        assert len(same_anchors) >= len(diff_anchors), \
+        """Very different sequences should produce fewer anchors."""
+        _, _, _, same_chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        _, _, _, diff_chain = minimizer_align("GATTACAGATTACA", "CCCCCCCCCCCCC",  k=3, w=5)
+        assert len(same_chain) >= len(diff_chain), \
             "Identical sequences should produce >= anchors as different sequences"
 
 
