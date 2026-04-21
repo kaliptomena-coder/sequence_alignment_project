@@ -1,3 +1,25 @@
+# =============================================================================
+#   Needleman-Wunsch Global Alignment
+#
+#   Classic DP algorithm for optimal global sequence alignment.
+#   Fills entire DP matrix: O(n*m) time and memory.
+#
+#   Scoring:
+#   - match: +1 (default)
+#   - mismatch: -1 (default)
+#   - gap: linear penalty (user-adjustable, default -2)
+#
+#   Parameter sensitivity experiment below demonstrates how
+#   different gap penalties affect alignment structure.
+#
+#   Tie-breaking: deterministic (diag > up > left)
+#
+#   Returns:
+#   - aligned_seq1 (with '-' for gaps)
+#   - aligned_seq2 (with '-' for gaps)
+#   - final alignment score
+# =========================================================================
+
 def needleman_wunsch(seq1, seq2, match=1, mismatch=-1, gap=-2):
     """
     Performing global alignment while allowing for parameter sensitivity testing.

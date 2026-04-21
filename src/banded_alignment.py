@@ -1,12 +1,10 @@
 # =============================================================================
-# WHAT IS BANDED ALIGNMENT?
 #   Normal NW fills every cell in an (n+1) x (m+1) matrix → O(n*m) time.
-#   Banded alignment says: "I only care about alignments that stay close
-#   to the main diagonal."  We only fill cells where |i - j| <= k.
-#   This makes it O(k * n) time, which is MUCH faster when sequences
-#   are similar and k can be small.
+#   Banded alignment cares only about alignments that stay close
+#   to the main diagonal.  We only fill cells where |i - j| <= k.
+#   This makes it O(k * n) time, which is much faster when sequences
+#   are similar and k can be small. It is used for
 #
-# WHEN TO USE IT:
 #   - Sequences that are very similar (e.g., >80% identical)
 #   - You know the sequences won't have huge insertions/deletions
 #   - Speed is important (e.g., aligning millions of short reads)
@@ -177,7 +175,6 @@ def banded_nw(seq1, seq2, k=10, match=2, mismatch=-1, gap=-2):
 
 # =============================================================================
 # HELPER: Full NW fallback (used when band is too narrow)
-#         This is just a standard NW without band restriction.
 # =============================================================================
 def _full_nw_fallback(seq1, seq2, match, mismatch, gap):
     """Standard O(nm) Needleman-Wunsch — used as fallback."""

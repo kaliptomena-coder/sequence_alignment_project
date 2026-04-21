@@ -1,3 +1,14 @@
+# =============================================================================
+#   BLAST-Lite: Heuristic Local Alignment (Seed + X-drop Extension)
+#
+#   get_kmers    → Index all k-mers for O(1) lookup
+#   extend_left  → Walk left from seed, stop on X-drop condition
+#   extend_right → Walk right from seed, same X-drop logic
+#   blast_lite   → Orchestrate: seed → extend → filter → sort by score
+#
+#   Time: O((n+m)*k) | Space: O(n) | Trade-off: speed vs optimality
+# =============================================================================
+
 def get_kmers(sequence, k):
     """Generating all possible k-mers and their starting positions from a sequence."""
     kmers = {}

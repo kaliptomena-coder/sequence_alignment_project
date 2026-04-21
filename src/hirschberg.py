@@ -1,3 +1,33 @@
+# =============================================================================
+#   Linear-Space Global Alignment Suite
+#
+#   Three functions working together to achieve optimal alignment with
+#   dramatically reduced memory footprint:
+#
+#   1. last_line_nw(seq1, seq2)
+#      - O(m) memory, O(n*m) time
+#      - Returns only last row scores (no alignment)
+#      - Used to find optimal partition points
+#
+#   2. nw_small(seq1, seq2)
+#      - O(n*m) memory, O(n*m) time
+#      - Full matrix + traceback
+#      - Base case for short sequences (n==1 or m==1)
+#
+#   3. hirschberg(seq1, seq2)
+#      - O(min(n,m)) memory, O(n*m) time
+#      - Recursive divide-and-conquer
+#      - Calls last_line_nw to find splits
+#      - Calls nw_small for base cases
+#      - Returns optimal global alignment
+#
+#   EXAMPLE WORKFLOW:
+#   Hirschberg splits the problem until subproblems are small enough
+#   for nw_small to handle directly. This avoids storing the entire
+#   DP matrix while still guaranteeing optimality.
+
+# =============================================================================
+
 def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
     """Calculating only the last row of the Needleman-Wunsch matrix to save memory."""
     n, m = len(seq1), len(seq2)

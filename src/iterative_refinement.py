@@ -1,5 +1,5 @@
 # =============================================================================
-# MUSCLE-style iterative refinement WITH convergence loop.
+# MUSCLE-style iterative refinement with convergence loop.
 # =============================================================================
 
 def sum_of_pairs(msa):

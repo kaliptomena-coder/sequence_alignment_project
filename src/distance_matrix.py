@@ -8,16 +8,11 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 # Importing your Needleman-Wunsch implementation
-# Check: Ensure your file is named exactly 'needlemanWunschGlobal.py'
-try:
-    from needlemanWunschGlobal import needleman_wunsch
-except ImportError:
-    # If you renamed the file to have two 'l's (needlemanWunschGllobal), this catch handles it
-    from needlemanWunschGlobal import needleman_wunsch
+from needlemanWunschGlobal import needleman_wunsch
 
 def calculate_distance(seq1, seq2):
     """Calculating the evolutionary distance by finding identity."""
-    # Running your global alignment
+    # Running  global alignment
 
     result = needleman_wunsch(seq1, seq2)
 

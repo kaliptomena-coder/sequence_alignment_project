@@ -1,6 +1,6 @@
 # =============================================================================
 # Minimizer-based approximate alignment with anchor chaining:
-#   fill the gaps BETWEEN chained anchors using standard NW alignment.
+#   fill the gaps between chained anchors using standard NW alignment.
 #   This gives us a complete alignment string with '-' characters.
 # =============================================================================
 

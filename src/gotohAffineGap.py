@@ -116,7 +116,7 @@ def gotoh_affine_gap(seq1, seq2, match=2, mismatch=-1, gap_open=-5, gap_extend=-
                 align1 += seq1[i - 1]
                 align2 += seq2[j - 1]
             else:
-                # transition into gap state → DO NOT emit characters here
+                # transition into gap state → Do not emit characters here
                 matrix = prev_matrix
                 continue
 
@@ -135,11 +135,10 @@ def gotoh_affine_gap(seq1, seq2, match=2, mismatch=-1, gap_open=-5, gap_extend=-
     return align1[::-1], align2[::-1], max(M[n][m], P[n][m], Q[n][m])
 
 def test_gotoh():
-    # Тест: вставка одного гэпа (ожидается штраф открытия)
+    # Test: inserting a single gap (gap opening penalty expected)
     s1, s2 = "GATTACA", "GATCA"
     a1, a2, score = gotoh_affine_gap(s1, s2)
     print(f"Alignment: {a1}\n           {a2}\nScore: {score}")
-    # Проверьте, совпадает ли скор с ручным расчетом
 
 if __name__ == "__main__":
     test_gotoh()
