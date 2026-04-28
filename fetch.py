@@ -32,4 +32,4 @@ file_path = 'data/serine_proteases.fasta'
 with open(file_path, 'w') as f:
     f.write(all_fasta)
 
-print(f'Done! Saved all sequences to {file_path}')
+print(f'All sequences are saved to {file_path}')

@@ -1,125 +1,123 @@
-# =============================================================================
-#   Linear-Space Global Alignment Suite
+# Standard Needleman-Wunsch needs O(n*m) memory to store the full DP matrix.
+# Hirschberg's divide-and-conquer trick reduces this to O(n + m) while
+# still guaranteeing the same optimal alignment score.
 #
-#   Three functions working together to achieve optimal alignment with
-#   dramatically reduced memory footprint:
+# Core idea:
+#   - Split seq1 at the midpoint
+#   - Run a forward NW pass on the top half  (only keeping the last row)
+#   - Run a backward NW pass on the bottom half (only keeping the last row)
+#   - Sum the two score arrays to find the best split point in seq2
+#   - Recurse on the two resulting sub-problems
 #
-#   1. last_line_nw(seq1, seq2)
-#      - O(m) memory, O(n*m) time
-#      - Returns only last row scores (no alignment)
-#      - Used to find optimal partition points
+# Three functions:
+#   last_line_nw(seq1, seq2)  — O(m) memory forward pass, returns last row only
+#   nw_small(seq1, seq2)      — full NW for base cases (n==1 or m==1)
+#   hirschberg(seq1, seq2)    — main divide-and-conquer recursive function
 #
-#   2. nw_small(seq1, seq2)
-#      - O(n*m) memory, O(n*m) time
-#      - Full matrix + traceback
-#      - Base case for short sequences (n==1 or m==1)
-#
-#   3. hirschberg(seq1, seq2)
-#      - O(min(n,m)) memory, O(n*m) time
-#      - Recursive divide-and-conquer
-#      - Calls last_line_nw to find splits
-#      - Calls nw_small for base cases
-#      - Returns optimal global alignment
-#
-#   EXAMPLE WORKFLOW:
-#   Hirschberg splits the problem until subproblems are small enough
-#   for nw_small to handle directly. This avoids storing the entire
-#   DP matrix while still guaranteeing optimality.
-
-# =============================================================================
+# Time complexity:  O(n * m)
+# Space complexity: O(n + m)
 
 def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
-    """Calculating only the last row of the Needleman-Wunsch matrix to save memory."""
+    """
+    Computing only the last row of the NW DP matrix to save memory.
+    Used by hirschberg() to find the optimal split point.
+    """
     n, m = len(seq1), len(seq2)
-    # Initializing the first row with cumulative gap penalties
+
+    # We only keep two rows at a time: the previous and the current one
     prev = [i * gap for i in range(m + 1)]
     curr = [0] * (m + 1)
 
     for i in range(1, n + 1):
-        # Setting the first cell of the current row as a vertical gap
         curr[0] = i * gap
         for j in range(1, m + 1):
-            # Determining the score for the current character pair
-            score = match if seq1[i-1] == seq2[j-1] else mismatch
-            # Selecting the maximum score from diagonal, vertical, and horizontal moves
-            curr[j] = max(prev[j-1] + score,
-                          prev[j] + gap,
-                          curr[j-1] + gap)
-        # Copying the current row to the previous row for the next iteration
+            s       = match if seq1[i-1] == seq2[j-1] else mismatch
+            curr[j] = max(prev[j-1] + s, prev[j] + gap, curr[j-1] + gap)
         prev = curr[:]
+
     return prev
 
+
 def nw_small(seq1, seq2, match, mismatch, gap):
-    """Needleman-Wunsch for small cases"""
+    """
+    Full Needleman-Wunsch for small base cases (when n==1 or m==1).
+    This is the standard O(n*m) version used only on tiny subproblems.
+    """
     n, m = len(seq1), len(seq2)
-    dp = [[0]*(m+1) for _ in range(n+1)]
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
 
-    for i in range(n+1):
-        dp[i][0] = i * gap
-    for j in range(m+1):
-        dp[0][j] = j * gap
+    for i in range(n + 1): dp[i][0] = i * gap
+    for j in range(m + 1): dp[0][j] = j * gap
 
-    for i in range(1, n+1):
-        for j in range(1, m+1):
-            s = match if seq1[i-1] == seq2[j-1] else mismatch
-            dp[i][j] = max(
-                dp[i-1][j-1] + s,
-                dp[i-1][j] + gap,
-                dp[i][j-1] + gap
-            )
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            s       = match if seq1[i-1] == seq2[j-1] else mismatch
+            dp[i][j] = max(dp[i-1][j-1] + s, dp[i-1][j] + gap, dp[i][j-1] + gap)
 
-    # traceback
-    i, j = n, m
-    a1, a2 = "", ""
-
+    # Traceback
+    a1, a2, i, j = "", "", n, m
     while i > 0 or j > 0:
-        if i>0 and j>0 and dp[i][j] == dp[i-1][j-1] + (match if seq1[i-1]==seq2[j-1] else mismatch):
-            a1 += seq1[i-1]; a2 += seq2[j-1]; i-=1; j-=1
-        elif i>0 and dp[i][j] == dp[i-1][j] + gap:
-            a1 += seq1[i-1]; a2 += "-"; i-=1
+        s = match if (i > 0 and j > 0 and seq1[i-1] == seq2[j-1]) else mismatch
+        if i > 0 and j > 0 and dp[i][j] == dp[i-1][j-1] + s:
+            a1 += seq1[i-1]; a2 += seq2[j-1]; i -= 1; j -= 1
+        elif i > 0 and dp[i][j] == dp[i-1][j] + gap:
+            a1 += seq1[i-1]; a2 += '-'; i -= 1
         else:
-            a1 += "-"; a2 += seq2[j-1]; j-=1
+            a1 += '-'; a2 += seq2[j-1]; j -= 1
 
     return a1[::-1], a2[::-1]
 
+
 def hirschberg(seq1, seq2, match=2, mismatch=-1, gap=-1):
-    """Executing the divide and conquer alignment to achieve linear space complexity."""
+    """
+    Dividing and conquering for global alignment with linear memory usage.
+
+    Parameters
+    ----------
+    seq1, seq2 : str  - sequences to align
+    match      : int  - match reward     (default +2)
+    mismatch   : int  - mismatch penalty (default -1)
+    gap        : int  - gap penalty      (default -1)
+
+    Returns
+    -------
+    align1, align2 : str  - optimally aligned strings
+    """
     n, m = len(seq1), len(seq2)
 
-    # Returning gaps for empty sequence scenarios
+    # Base cases: one sequence is empty → fill entirely with gaps
     if n == 0:
-        return "-" * m, seq2
-    elif m == 0:
-        return seq1, "-" * n
+        return '-' * m, seq2
+    if m == 0:
+        return seq1, '-' * n
 
-    # Resolving the alignment using the helper function for single-character sequences
+    # Base case: one sequence is a single character → use full NW
     if n == 1 or m == 1:
         return nw_small(seq1, seq2, match, mismatch, gap)
 
-    # Splitting the first sequence into two equal halves
+    # Divide seq1 at its midpoint
     mid1 = n // 2
 
-    # Processing the forward pass on the first half of the sequences
-    score_left = last_line_nw(seq1[:mid1], seq2, match, mismatch, gap)
-    # Processing the backward pass on the reversed second half of the sequences
+    # Forward pass on the top half of seq1
+    score_left  = last_line_nw(seq1[:mid1],       seq2,       match, mismatch, gap)
+    # Backward pass on the bottom half (reversed sequences)
     score_right = last_line_nw(seq1[mid1:][::-1], seq2[::-1], match, mismatch, gap)
 
-    # Summing scores to identify the optimal split point in the second sequence
-    partition = [score_left[j] + score_right[m-j] for j in range(m + 1)]
-    mid2 = partition.index(max(partition))
+    # Finding the split point in seq2 that maximizes the combined score
+    partition = [score_left[j] + score_right[m - j] for j in range(m + 1)]
+    mid2      = partition.index(max(partition))
 
-    # Triggering recursive calls for the resulting left and right sub-problems
-    aln1_left, aln2_left = hirschberg(seq1[:mid1], seq2[:mid2], match, mismatch, gap)
-    aln1_right, aln2_right = hirschberg(seq1[mid1:], seq2[mid2:], match, mismatch, gap)
+    # Recursing on the left and right sub-problems
+    left1,  left2  = hirschberg(seq1[:mid1],  seq2[:mid2],  match, mismatch, gap)
+    right1, right2 = hirschberg(seq1[mid1:],  seq2[mid2:],  match, mismatch, gap)
 
-    # Concatenating the sub-alignments into the final resulting sequences
-    return aln1_left + aln1_right, aln2_left + aln2_right
+    return left1 + right1, left2 + right2
+
 
 if __name__ == "__main__":
-    # Testing the algorithm with DNA sample strings
     s1 = "AGTAACG"
     s2 = "ACATAG"
-    res1, res2 = hirschberg(s1, s2)
-    print("--- Hirschberg Result ---")
-    print(f"Seq1: {res1}")
-    print(f"Seq2: {res2}")
+    r1, r2 = hirschberg(s1, s2)
+    print("=== Hirschberg Alignment ===")
+    print(f"Seq1: {r1}")
+    print(f"Seq2: {r2}")

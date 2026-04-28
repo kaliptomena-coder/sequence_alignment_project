@@ -1,50 +1,49 @@
-# =============================================================================
-# Minimizer-based approximate alignment with anchor chaining:
-#   fill the gaps between chained anchors using standard NW alignment.
-#   This gives us a complete alignment string with '-' characters.
-# =============================================================================
+# For genome-scale sequences, even BLAST-style seeding can be slow.
+# Minimizers are a compact sketch of a sequence: for each window of size w,
+# we keep only the lexicographically smallest k-mer.
+# Two regions that are similar will tend to share minimizers.
+#
+# Full pipeline:
+#   1. get_minimizers()    — sketch each sequence, one minimizer per window
+#   2. find_anchors()      — find positions where both sequences share a minimizer
+#   3. chain_anchors()     — select the longest co-linear chain (DP, like LIS)
+#   4. fill_gaps_with_nw() — align the regions between chained anchors with NW
+#   5. minimizer_align()   — orchestrate all four steps
+#
+# Time complexity:  O(n log n) for sketching + O(n²) for chaining (naive)
+# Space complexity: O(n) for the sketch index
 
-
-# We need NW for gap-filling between anchors
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from needlemanWunschGlobal import needleman_wunsch
 
-# =============================================================================
-# 1. Minimizer sketching
-# =============================================================================
+# Step 1: Minimizer Sketching
+
 
 def get_minimizers(sequence, k, w):
     """
-    Select the lexicographically smallest k-mer in each window of size w.
-
-    A minimizer is a compact representation of a sequence region.
-    Two sequences that share a minimizer likely share that region.
+    Selecting the lexicographically smallest k-mer in each sliding window of size w.
 
     Parameters
     ----------
-    sequence : str  – the input sequence
-    k        : int  – k-mer length
-    w        : int  – window size (w >= k)
+    sequence : str  - the input sequence
+    k        : int  - k-mer length (how specific each anchor is)
+    w        : int  - window size (how dense the sketch is; must be >= k)
 
     Returns
     -------
-    list of (kmer, position) tuples — one per window
+    list of (kmer, position) — one entry per unique (kmer, position) pair
     """
     minimizers = []
-    seen = set()   # avoid exact duplicates
+    seen = set()
 
     for i in range(len(sequence) - w + 1):
-        window   = sequence[i : i + w]
-        # All k-mers in this window
-        kmers_in_window = [(window[j : j + k], i + j)
-                           for j in range(w - k + 1)]
+        window      = sequence[i:i+w]
+        kmers_in_window = [(window[j:j+k], i + j) for j in range(w - k + 1)]
         if not kmers_in_window:
             continue
-        # Pick the lexicographically smallest k-mer
         min_kmer, min_pos = min(kmers_in_window, key=lambda x: x[0])
-
         key = (min_kmer, min_pos)
         if key not in seen:
             minimizers.append(key)
@@ -52,30 +51,19 @@ def get_minimizers(sequence, k, w):
 
     return minimizers
 
-# =============================================================================
-# 2. Find shared anchors (exact k-mer matches between query and target)
-# =============================================================================
+# Step 2: Finding Shared Anchors
 
 def find_anchors(query, target, k, w):
     """
-    Find positions where query and target share a minimizer k-mer.
+    Finding positions where query and target share the same minimizer k-mer.
+    Each anchor is a (q_start, t_start, k) tuple meaning those k characters match.
 
-    Each anchor is a (q_start, t_start, length) tuple meaning:
-      query[q_start : q_start+k] == target[t_start : t_start+k]
-
-    Parameters
-    ----------
-    query, target : str  – the two sequences to compare
-    k, w          : int  – minimizer parameters
-
-    Returns
-    -------
-    list of (q_start, t_start, k) tuples, sorted by q_start
+    Returns a list of anchors sorted by query position.
     """
     query_mins  = get_minimizers(query,  k, w)
     target_mins = get_minimizers(target, k, w)
 
-    # Build a lookup: kmer → list of target positions
+    # Building a lookup from k-mer to all target positions where it appears
     target_lookup = {}
     for kmer, t_pos in target_mins:
         target_lookup.setdefault(kmer, []).append(t_pos)
@@ -84,144 +72,97 @@ def find_anchors(query, target, k, w):
     for kmer, q_pos in query_mins:
         if kmer in target_lookup:
             for t_pos in target_lookup[kmer]:
-                anchors.append((q_pos, t_pos, k))   # (q_start, t_start, length)
+                anchors.append((q_pos, t_pos, k))
 
-    # Sort by query start position
     anchors.sort(key=lambda x: x[0])
     return anchors
 
-# =============================================================================
-# 3. CO-LINEAR CHAINING
-#
-# We have a set of anchors (q_pos, t_pos, length).
-#          We want to pick the subset that:
-#            - is ordered: anchor i comes before anchor j means
-#              q_pos[i] < q_pos[j]  AND  t_pos[i] < t_pos[j]
-#            - maximises total matched bases (sum of anchor lengths)
-#
-# This is solved with dynamic programming — similar to Longest Increasing
-# Subsequence (LIS), but we maximise weight instead of count.
-# =============================================================================
+# Step 3: Co-Linear Chaining (DP similar to Longest Increasing Subsequence)
+
 
 def chain_anchors(anchors):
     """
-    Find the best co-linear chain of anchors using dynamic programming.
+    Selecting the best subset of anchors that appear in the same order
+    in both sequences (co-linear) and maximizes total matched bases.
 
-    An anchor B can follow anchor A only if:
-        B.q_start >= A.q_start + A.length   (no overlap in query)
-        B.t_start >= A.t_start + A.length   (no overlap in target)
+    Anchor B can follow anchor A only if:
+        B.q_start >= A.q_start + A.length  (no query overlap)
+        B.t_start >= A.t_start + A.length  (no target overlap)
 
-    We maximise the total matched bases (sum of anchor lengths in the chain).
-
-    Parameters
-    ----------
-    anchors : list of (q_start, t_start, length) tuples
-
-    Returns
-    -------
-    list of (q_start, t_start, length) – the best chain, in order
+    Returns the best chain as a list of (q_start, t_start, length) tuples.
     """
     if not anchors:
         return []
 
     n = len(anchors)
-
-    # dp[i] = best total matched bases for a chain ending at anchor i
-    dp      = [anchors[i][2] for i in range(n)]   # initialise with own length
-    parent  = [-1] * n                             # backpointer
+    dp     = [anchors[i][2] for i in range(n)]  # initializing with own anchor length
+    parent = [-1] * n
 
     for i in range(1, n):
         q_i, t_i, len_i = anchors[i]
-
         for j in range(i):
             q_j, t_j, len_j = anchors[j]
-
-            # Can anchor i follow anchor j?
+            # Checking the co-linearity condition
             if q_i >= q_j + len_j and t_i >= t_j + len_j:
                 candidate = dp[j] + len_i
                 if candidate > dp[i]:
                     dp[i]     = candidate
                     parent[i] = j
 
-    # Find the chain with the maximum score
+    # Reconstructing the chain by following backpointers
     best_end = max(range(n), key=lambda i: dp[i])
-
-    # Traceback to reconstruct the chain
-    chain   = []
-    idx     = best_end
+    chain, idx = [], best_end
     while idx != -1:
         chain.append(anchors[idx])
         idx = parent[idx]
 
-    chain.reverse()   # built backwards → reverse
+    chain.reverse()
     return chain
 
-
-# =============================================================================
-# 4. Fill gaps between chained anchors with NW alignment
-#
-# After chaining, we have a list of anchor regions where query and target
-# already agree.  Between consecutive anchors, we need to align the
-# remaining characters using NW.
-# =============================================================================
+# Step 4: Filling Gaps Between Anchors with NW
 
 def fill_gaps_with_nw(query, target, chain):
     """
-    Build a complete alignment string by:
-      1. For each gap between chained anchors, run NW alignment
-      2. For each anchor region, emit the matching characters directly
+    Building the full alignment by:
+      - Using NW to align the sequence regions between consecutive anchors
+      - Copying anchor regions directly (they are already exact matches)
 
     Parameters
     ----------
-    query, target : str  – original (un-gapped) sequences
-    chain         : list of (q_start, t_start, length) tuples
+    query, target : str   - original un-gapped sequences
+    chain         : list  - co-linear anchor chain from chain_anchors()
 
     Returns
     -------
-    align_q, align_t : str – full alignment strings (with '-' gaps)
-    score            : int – approximate alignment score (sum of NW sub-scores)
+    align_q, align_t : str  - complete aligned strings
+    total_score      : int  - approximate alignment score
     """
-    align_q = ""
-    align_t = ""
+    align_q, align_t = "", ""
     total_score = 0
-
-    # Pointers to where we are in each sequence
-    q_cursor = 0
-    t_cursor = 0
+    q_cursor, t_cursor = 0, 0
 
     for (q_start, t_start, length) in chain:
-
-        # -----------------------------------------------------------------
-        # Gap BEFORE this anchor: align the region between cursor and anchor
-        # -----------------------------------------------------------------
-        q_gap_region = query [q_cursor : q_start]
-        t_gap_region = target[t_cursor : t_start]
-
-        if q_gap_region or t_gap_region:
-            # Use NW to align the gap region
-            g1, g2, gscore = needleman_wunsch(q_gap_region, t_gap_region)
+        # Aligning the gap region before this anchor
+        q_gap = query [q_cursor:q_start]
+        t_gap = target[t_cursor:t_start]
+        if q_gap or t_gap:
+            g1, g2, gscore = needleman_wunsch(q_gap, t_gap)
             align_q     += g1
             align_t     += g2
             total_score += gscore
 
-        # -----------------------------------------------------------------
-        # ANCHOR REGION: characters match directly, no gaps needed
-        # -----------------------------------------------------------------
-        anchor_seq = query[q_start : q_start + length]
-        align_q    += anchor_seq
-        align_t    += anchor_seq   # same characters (it's a match)
-        total_score += length * 2  # +2 per matching character (default match score)
+        # Copying the anchor region directly (it's an exact match)
+        anchor_seq   = query[q_start:q_start+length]
+        align_q     += anchor_seq
+        align_t     += anchor_seq
+        total_score += length * 2  # +2 per matching character (default match reward)
 
-        # Advance cursors to just after this anchor
         q_cursor = q_start + length
         t_cursor = t_start + length
 
-    # -----------------------------------------------------------------
-    # Gap AFTER the last anchor: align remaining tails
-    # -----------------------------------------------------------------
+    # Aligning any remaining tail after the last anchor
     q_tail = query [q_cursor:]
     t_tail = target[t_cursor:]
-
     if q_tail or t_tail:
         g1, g2, gscore = needleman_wunsch(q_tail, t_tail)
         align_q     += g1
@@ -231,94 +172,55 @@ def fill_gaps_with_nw(query, target, chain):
     return align_q, align_t, total_score
 
 
-# =============================================================================
-# 5. Main function — the complete pipeline
-# =============================================================================
+# Step 5: Full Pipeline
 
 def minimizer_align(query, target, k=4, w=8):
     """
-    Full minimizer-based approximate alignment pipeline:
-        1. Sketch both sequences with minimizers
-        2. Find shared anchors (exact k-mer matches)
-        3. Chain anchors co-linearly
-        4. Fill gaps between anchors with NW
-        5. Return the complete alignment strings
+    Running the complete minimizer-based approximate alignment:
+        sketch → anchor → chain → fill gaps with NW
 
     Parameters
     ----------
-    query, target : str  – input sequences
-    k             : int  – k-mer size   (larger = more specific anchors)
-    w             : int  – window size  (larger = sparser sketch)
+    query, target : str  - input sequences
+    k             : int  - k-mer length  (larger = fewer, more specific anchors)
+    w             : int  - window size   (larger = sparser sketch)
 
     Returns
     -------
-    align_q : str  – aligned query  (may contain '-')
-    align_t : str  – aligned target (may contain '-')
-    score   : int  – alignment score
-    chain   : list – the selected anchor chain (for inspection)
+    align_q, align_t : str   - aligned strings
+    score            : int   - approximate alignment score
+    chain            : list  - the selected anchor chain (for inspection)
     """
-
-    # Step 1 & 2: Find shared anchors
     anchors = find_anchors(query, target, k, w)
 
     if not anchors:
-        # No shared minimizers → fall back to full NW
         print("  No shared minimizers found. Falling back to full NW.")
         a1, a2, score = needleman_wunsch(query, target)
         return a1, a2, score, []
 
-    # Step 3: Chain the anchors
     chain = chain_anchors(anchors)
-
-    # Step 4: Fill gaps between chained anchors
     align_q, align_t, score = fill_gaps_with_nw(query, target, chain)
 
     return align_q, align_t, score, chain
 
 
-# =============================================================================
-# DEMO
-# =============================================================================
-
 if __name__ == "__main__":
-    print("=" * 60)
-    print("MINIMIZER ALIGNMENT WITH CHAINING DEMO")
-    print("=" * 60)
+    print("=== Minimizer Alignment Demo ===")
 
-    # Test 1: Sequences with one small mutation
     q = "GATTACAGATTACA"
     t = "GATTAGAGATTACA"
+    a_q, a_t, score, chain = minimizer_align(q, t, k=3, w=5)
 
     print(f"\nQuery:  {q}")
     print(f"Target: {t}")
+    print(f"Anchors used: {len(chain)}")
+    print(f"Alignment:\n  {a_q}\n  {a_t}\n  Score: {score}")
 
-    a_q, a_t, score, chain = minimizer_align(q, t, k=3, w=5)
-
-    print(f"\nChained anchors ({len(chain)}):")
-    for q_s, t_s, ln in chain:
-        print(f"  q[{q_s}:{q_s+ln}] = t[{t_s}:{t_s+ln}]  '{q[q_s:q_s+ln]}'")
-
-    print(f"\nAlignment:")
-    print(f"  Query:  {a_q}")
-    print(f"  Target: {a_t}")
-    print(f"  Score:  {score}")
-
-    # Test 2: Nearly identical sequences → chain should cover most positions
+    # Test 2: Identical sequences
     q2 = "ACGTACGTACGTACGT"
-    t2 = "ACGTACGTACGTACGT"
+    a_q2, a_t2, score2, chain2 = minimizer_align(q2, q2, k=4, w=6)
+    print(f"\nIdentical sequences — Score: {score2}, Anchors: {len(chain2)}")
 
-    print(f"\n\nTest 2 (identical):")
-    print(f"  Query:  {q2}")
-    a_q2, a_t2, score2, chain2 = minimizer_align(q2, t2, k=4, w=6)
-    print(f"  Align:  {a_q2}")
-    print(f"  Score:  {score2}")
-    print(f"  Anchors used: {len(chain2)}")
-
-    # Test 3: No common k-mers → should fall back to NW
-    print(f"\n\nTest 3 (no common minimizers → fallback to NW):")
-    a_q3, a_t3, score3, _ = minimizer_align("AAAAAAA", "TTTTTTT", k=4, w=5)
-    print(f"  Query:  {a_q3}")
-    print(f"  Target: {a_t3}")
-    print(f"  Score:  {score3}")
-
-    print("\nAll tests complete!")
+    # Test 3: No common k-mers → fallback expected
+    print("\nNo common minimizers:")
+    minimizer_align("AAAAAAA", "TTTTTTT", k=4, w=5)

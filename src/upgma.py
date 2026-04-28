@@ -1,65 +1,76 @@
-# =============================================================================
-# UPGMA (Unweighted Pair Group Method with Arithmetic Mean) Clustering
+# UPGMA (Unweighted Pair Group Method with Arithmetic Mean) builds a rooted
+# hierarchical guide tree from a pairwise distance matrix.
+# The result is used to determine the order of sequence merging in progressive MSA.
 #
-# Builds a rooted guide tree from a distance matrix using hierarchical clustering.
-# At each step: find closest pair → merge into new cluster → update distances
-# via arithmetic mean → repeat until one cluster remains.
+# Algorithm:
+#   1. Find the pair of clusters with the smallest distance
+#   2. Merge them into a new cluster labeled as (cluster_i, cluster_j)
+#   3. Recompute distances from the new cluster to all others
+#      using the arithmetic mean of the two merged clusters
+#   4. Repeat until only one cluster remains
 #
-# FUNCTIONS:
-# - find_lowest_cell(matrix) → coordinates of minimum distance (excluding diagonal)
-# - update_labels(labels, i, j) → merges two labels into nested tuple (i,j)
-# - run_upgma(labels, matrix) → main loop, returns final nested cluster tree
-#
-# COMPLEXITY: O(n³) naive (n iterations × O(n²) per update)
-# =============================================================================
+# Time complexity: O(n³) naive (n rounds × O(n²) distance lookup and update)
+
 
 def find_lowest_cell(matrix):
-    """Finding the coordinates of the minimum distance in the matrix."""
+    """
+    Finding the (i, j) coordinates of the minimum off-diagonal value in the matrix.
+    This identifies the two closest clusters to be merged next.
+    """
     min_dist = float('inf')
-    x, y = -1, -1
+    x, y     = -1, -1
     for i in range(len(matrix)):
         for j in range(len(matrix[i])):
             if i != j and matrix[i][j] < min_dist:
                 min_dist = matrix[i][j]
-                x, y = i, j
+                x, y     = i, j
     return x, y
 
 def update_labels(labels, i, j):
-    """Combining labels of merged sequences into a nested tuple format."""
-    # Ensuring the lower index is handled first for consistency
+    """
+    Merging two cluster labels into a nested tuple and removing the higher index.
+    The nested tuple structure encodes the tree topology (e.g., ('A', ('B', 'C'))).
+    """
+    # Processing the lower index first to avoid index-shift issues
     if j < i:
         i, j = j, i
 
-    # Creating a new cluster label
-    new_label = (labels[i], labels[j])
-    labels[i] = new_label
+    labels[i] = (labels[i], labels[j])
     del labels[j]
     return labels
 
 def run_upgma(labels, matrix):
-    """Executing the UPGMA algorithm to build a guide tree."""
-    # Converting matrix to a list of lists for easier manipulation
+    """
+    Running the UPGMA clustering algorithm to produce a guide tree.
+
+    Parameters
+    ----------
+    labels : list of str   - sequence names (one per row/column)
+    matrix : list of list  - symmetric pairwise distance matrix
+
+    Returns
+    -------
+    The root of the guide tree as a nested tuple of labels.
+    Example: (('HBA_HUMAN', 'HBB_HUMAN'), 'MYG_HUMAN')
+    """
     curr_matrix = [list(row) for row in matrix]
     curr_labels = list(labels)
 
     print("Starting UPGMA clustering...")
 
     while len(curr_labels) > 1:
-        # 1. Locating the closest pair
+        # Step 1: Finding the two closest clusters
         i, j = find_lowest_cell(curr_matrix)
+        print(f"  Merging: {curr_labels[i]} + {curr_labels[j]}")
 
-        print(f"Merging: {curr_labels[i]} and {curr_labels[j]}")
-
-        # 2. Calculating distances for the new cluster
+        # Step 2: Computing distances from the new cluster to all others
+        # Using the arithmetic mean of the two merged clusters' distances
         new_row = []
         for k in range(len(curr_matrix)):
             if k != i and k != j:
-                # Computing arithmetic mean distance
-                dist = (curr_matrix[i][k] + curr_matrix[j][k]) / 2
-                new_row.append(dist)
+                new_row.append((curr_matrix[i][k] + curr_matrix[j][k]) / 2)
 
-        # 3. Rebuilding the matrix
-        # Removing old rows/columns (removing higher index first to avoid shifts)
+        # Step 3: Removing old rows and columns (higher index first to avoid shifts)
         first, second = sorted([i, j], reverse=True)
         for row in curr_matrix:
             del row[first]
@@ -67,26 +78,25 @@ def run_upgma(labels, matrix):
         del curr_matrix[first]
         del curr_matrix[second]
 
-        # Adding the new cluster's distances to the matrix
+        # Appending the new cluster's distances
         for idx, row in enumerate(curr_matrix):
             row.append(new_row[idx])
-        new_row.append(0.0) # Distance to itself
+        new_row.append(0.0)  # Distance to itself
         curr_matrix.append(new_row)
 
-        # 4. Updating the label list
+        # Step 4: Updating labels
         curr_labels = update_labels(curr_labels, i, j)
 
     return curr_labels[0]
 
 if __name__ == "__main__":
-    # Testing with your actual Hemoglobin results
+    # Quick test using the hemoglobin example
     example_labels = ["HBA_HUMAN", "HBB_HUMAN", "MYG_HUMAN"]
-    example_matrix = [
-        [0.0, 0.5676, 0.7161],
-        [0.5676, 0.0, 0.7451],
-        [0.7161, 0.7451, 0.0]
+    example_matrix  = [
+        [0.0,    0.5676, 0.7161],
+        [0.5676, 0.0,    0.7451],
+        [0.7161, 0.7451, 0.0   ],
     ]
 
     guide_tree = run_upgma(example_labels, example_matrix)
-    print("\nFinal Guide Tree (Cluster Order):")
-    print(guide_tree)
+    print(f"\nGuide tree: {guide_tree}")
