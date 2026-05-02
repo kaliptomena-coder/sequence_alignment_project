@@ -1,27 +1,5 @@
-# Standard Needleman-Wunsch needs O(n*m) memory to store the full DP matrix.
-# Hirschberg's divide-and-conquer trick reduces this to O(n + m) while
-# still guaranteeing the same optimal alignment score.
-#
-# Core idea:
-#   - Split seq1 at the midpoint
-#   - Run a forward NW pass on the top half  (only keeping the last row)
-#   - Run a backward NW pass on the bottom half (only keeping the last row)
-#   - Sum the two score arrays to find the best split point in seq2
-#   - Recurse on the two resulting sub-problems
-#
-# Three functions:
-#   last_line_nw(seq1, seq2)  — O(m) memory forward pass, returns last row only
-#   nw_small(seq1, seq2)      — full NW for base cases (n==1 or m==1)
-#   hirschberg(seq1, seq2)    — main divide-and-conquer recursive function
-#
-# Time complexity:  O(n * m)
-# Space complexity: O(n + m)
-
 def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
-    """
-    Computing only the last row of the NW DP matrix to save memory.
-    Used by hirschberg() to find the optimal split point.
-    """
+
     n, m = len(seq1), len(seq2)
 
     # We only keep two rows at a time: the previous and the current one

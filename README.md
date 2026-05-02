@@ -124,34 +124,42 @@ sequence_alignment_project/
 
 ```python
 import sys
+
 sys.path.insert(0, 'src')
 
 # Pairwise Exact
 
 from needlemanWunschGlobal import needleman_wunsch
+
 a1, a2, score = needleman_wunsch('GATTACA', 'GATCA')
 a1, a2, score = needleman_wunsch('GATTACA', 'GATCA', match=2, mismatch=-1, gap=-2)
 
 from smithWatermanLocal import smith_waterman
+
 a1, a2, score = smith_waterman('TTTACGTTTTT', 'ACGT', match=2, mismatch=-1, gap=-2)
 
-from gotohAffineGap import gotoh_affine_gap
+from gotoh import gotoh_affine_gap
+
 a1, a2, score = gotoh_affine_gap('GATTACA', 'GATCA', gap_open=-5, gap_extend=-1)
 
 from hirschberg import hirschberg
-a1, a2 = hirschberg('GATTACA', 'GATCA')   # O(n+m) space
+
+a1, a2 = hirschberg('GATTACA', 'GATCA')  # O(n+m) space
 
 from banded_alignment import banded_nw
+
 a1, a2, score = banded_nw('GATTACA', 'GATTACA', k=5)
 # If |len(s1)-len(s2)| > k, automatically falls back to full NW
 
 # Heuristic
 
 from blast_lite import blast_lite
+
 hsps = blast_lite(query, target, k=4, threshold=5)
 # Returns: [{'score': int, 'query_pos': int, 'target_pos': int, 'alignment': (str,str)}, ...]
 
 from minimizer_align import minimizer_align
+
 a1, a2, score, chain = minimizer_align(query, target, k=4, w=8)
 # chain = list of (q_start, t_start, length) anchor tuples
 
@@ -167,13 +175,15 @@ refined_msa, final_score, history = iterative_refinement(
 print(f'SP score: {sum_of_pairs(initial_msa)} -> {final_score}')
 
 from profile_hmm import ProfileHMM
+
 model = ProfileHMM(training_msa, gap_threshold=0.5)
 path, score = model.viterbi('ACGTACGT')
 
 # Load FASTA files
 
 from data_loader import load_fasta
-seqs = load_fasta('globins.fasta')    # returns {name: sequence}
+
+seqs = load_fasta('globins.fasta')  # returns {name: sequence}
 for name, seq in seqs.items():
     print(f'{name}: {len(seq)} aa')
 ```

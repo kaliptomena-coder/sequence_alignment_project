@@ -1,25 +1,5 @@
-# Exact alignment methods like NW are too slow for large databases.
-# BLAST speeds things up by only looking for alignments near short exact
-# matches (seeds), then extending those seeds in both directions.
-#
-# Pipeline:
-#   1. get_kmers()      — index all k-mers in the target for O(1) lookup
-#   2. extend_left()    — walk left from a seed using X-drop stopping rule
-#   3. extend_right()   — walk right from a seed using X-drop stopping rule
-#   4. blast_lite()     — for each query k-mer, find hits, extend, filter
-#
-# X-drop rule: stop extending when the score drops more than `threshold`
-# below the running maximum. This avoids extending through bad regions.
-#
-# Time complexity:  O((n + m) * k)  — much faster than O(n*m) for large inputs
-# Space complexity: O(n)            — only index the target, not a full matrix
-# Trade-off: speed vs optimality — results are heuristic, not guaranteed optimal
-
 def get_kmers(sequence, k):
-    """
-    Indexing all k-mers in a sequence and recording their starting positions.
-    Returns a dict of {kmer: [list of start positions]}.
-    """
+
     kmers = {}
     for i in range(len(sequence) - k + 1):
         kmer = sequence[i:i+k]
@@ -106,28 +86,8 @@ def extend_right(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold
 
     return r_ext1, r_ext2, max_r_score
 
-
 def blast_lite(query, target, k=3, threshold=5):
-    """
-    Performing heuristic bidirectional seed-and-extend alignment (BLAST-style).
 
-    For each k-mer in the query, finds its positions in the target, then
-    extends each hit left and right. Only high-scoring HSPs are returned.
-
-    Parameters
-    ----------
-    query, target : str  - the two sequences to compare
-    k             : int  - k-mer seed length (default 3)
-    threshold     : int  - X-drop stopping threshold (default 5)
-
-    Returns
-    -------
-    list of dicts, sorted by score (descending). Each dict contains:
-        'score'      : total HSP score
-        'query_pos'  : start position in the query
-        'target_pos' : start position in the target
-        'alignment'  : (aligned_query, aligned_target) tuple
-    """
     target_kmers = get_kmers(target, k)
     hsp_results  = []
     match_val    = 2  # Match reward used for seed scoring

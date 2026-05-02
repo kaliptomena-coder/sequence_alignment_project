@@ -17,7 +17,7 @@ if src_path not in sys.path:
 
 from needlemanWunschGlobal  import needleman_wunsch
 from smithWatermanLocal     import smith_waterman
-from gotohAffineGap         import gotoh_affine_gap
+from gotoh         import gotoh_affine_gap
 from hirschberg             import hirschberg
 from banded_alignment       import banded_nw
 from blast_lite             import blast_lite

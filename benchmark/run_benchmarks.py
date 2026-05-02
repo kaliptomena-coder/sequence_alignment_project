@@ -25,7 +25,7 @@ if SRC_DIR not in sys.path:
 
 from needlemanWunschGlobal import needleman_wunsch
 from smithWatermanLocal    import smith_waterman
-from gotohAffineGap        import gotoh_affine_gap
+from gotoh                  import gotoh
 from hirschberg            import hirschberg
 from banded_alignment      import banded_nw
 from blast_lite            import blast_lite
@@ -91,7 +91,7 @@ def benchmark_pairwise_runtime():
     algorithms = {
         "Needleman-Wunsch": lambda s1, s2: needleman_wunsch(s1, s2),
         "Smith-Waterman"  : lambda s1, s2: smith_waterman(s1, s2),
-        "Gotoh"           : lambda s1, s2: gotoh_affine_gap(s1, s2),
+        "Gotoh"           : lambda s1, s2: gotoh(s1, s2),
         "Hirschberg"      : lambda s1, s2: hirschberg(s1, s2),
         "Banded (k=10)"   : lambda s1, s2: banded_nw(s1, s2, k=10),
     }
@@ -240,8 +240,11 @@ def benchmark_all_datasets():
         print(f"\n=== {dataset_name} ({len(seqs)} sequences) ===")
 
         for name1, name2 in itertools.combinations(names, 2):
-            _, _, score = smith_waterman(seqs[name1], seqs[name2])
-            print(f"  {name1} vs {name2}  |  SW score: {score}")
+           _, _, sw_score = smith_waterman(seqs[name1], seqs[name2])
+           _, _, nw_score = needleman_wunsch(seqs[name1], seqs[name2])
+           _, _, gotoh_score = gotoh(seqs[name1], seqs[name2])
+           print(f"  {name1} vs {name2}  |  SW score: {sw_score} |  NW score: {nw_score} | Gotoh score: {gotoh_score}")
+
 
 # CSV Saving
 
