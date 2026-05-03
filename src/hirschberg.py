@@ -1,4 +1,4 @@
-def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
+def last_line_nw(seq1, seq2, match=1, mismatch=-1, gap=-2):
 
     n, m = len(seq1), len(seq2)
 
@@ -16,11 +16,12 @@ def last_line_nw(seq1, seq2, match=2, mismatch=-1, gap=-1):
     return prev
 
 
-def nw_small(seq1, seq2, match, mismatch, gap):
+def nw_small(seq1, seq2, match=1, mismatch=-1, gap=-2):
     """
-    Full Needleman-Wunsch for small base cases (when n==1 or m==1).
-    This is the standard O(n*m) version used only on tiny subproblems.
-    """
+       Full Needleman-Wunsch for small base cases (when n==1 or m==1).
+       Returns sequences and score.
+       """
+
     n, m = len(seq1), len(seq2)
     dp = [[0] * (m + 1) for _ in range(n + 1)]
 
@@ -43,35 +44,22 @@ def nw_small(seq1, seq2, match, mismatch, gap):
         else:
             a1 += '-'; a2 += seq2[j-1]; j -= 1
 
-    return a1[::-1], a2[::-1]
+    return a1[::-1], a2[::-1], dp[n][m]
 
 
-def hirschberg(seq1, seq2, match=2, mismatch=-1, gap=-1):
-    """
-    Dividing and conquering for global alignment with linear memory usage.
-
-    Parameters
-    ----------
-    seq1, seq2 : str  - sequences to align
-    match      : int  - match reward     (default +2)
-    mismatch   : int  - mismatch penalty (default -1)
-    gap        : int  - gap penalty      (default -1)
-
-    Returns
-    -------
-    align1, align2 : str  - optimally aligned strings
-    """
+def hirschberg(seq1, seq2, match=1, mismatch=-1, gap=-2):
     n, m = len(seq1), len(seq2)
 
     # Base cases: one sequence is empty → fill entirely with gaps
     if n == 0:
-        return '-' * m, seq2
+        return '-' * m, seq2, gap*m
     if m == 0:
-        return seq1, '-' * n
+        return seq1, '-' * n, gap*n
 
     # Base case: one sequence is a single character → use full NW
     if n == 1 or m == 1:
-        return nw_small(seq1, seq2, match, mismatch, gap)
+        a1, a2, score= nw_small(seq1, seq2, match, mismatch, gap)
+        return a1, a2, score
 
     # Divide seq1 at its midpoint
     mid1 = n // 2
@@ -86,16 +74,17 @@ def hirschberg(seq1, seq2, match=2, mismatch=-1, gap=-1):
     mid2      = partition.index(max(partition))
 
     # Recursing on the left and right sub-problems
-    left1,  left2  = hirschberg(seq1[:mid1],  seq2[:mid2],  match, mismatch, gap)
-    right1, right2 = hirschberg(seq1[mid1:],  seq2[mid2:],  match, mismatch, gap)
+    left1,  left2, left_score  = hirschberg(seq1[:mid1],  seq2[:mid2],  match, mismatch, gap)
+    right1, right2, right_score = hirschberg(seq1[mid1:],  seq2[mid2:],  match, mismatch, gap)
 
-    return left1 + right1, left2 + right2
+    return left1 + right1, left2 + right2, left_score+right_score
 
 
 if __name__ == "__main__":
     s1 = "AGTAACG"
     s2 = "ACATAG"
-    r1, r2 = hirschberg(s1, s2)
+    r1, r2, score = hirschberg(s1, s2)
     print("=== Hirschberg Alignment ===")
     print(f"Seq1: {r1}")
     print(f"Seq2: {r2}")
+    print(f"Score: {score}")
