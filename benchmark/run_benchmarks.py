@@ -332,6 +332,11 @@ def make_plots(pairwise_results, pairwise_lengths,
     plt.close()
     print("  Saved: plot_gap_sensitivity.png")
 
+def benchmark(func, *args):
+    """Quick one-shot benchmark for simple comparisons."""
+    start = time.perf_counter()
+    result = func(*args)
+    return result, time.perf_counter() - start
 # Entry Point
 
 if __name__ == "__main__":
@@ -339,6 +344,14 @@ if __name__ == "__main__":
     print("SEQUENCE ALIGNMENT BENCHMARK SUITE")
     print(f"Results will be saved to: {RESULTS_DIR}\n")
 
+    s1 = "GATTACA"
+    s2 = "GATCA"
+
+    result, elapsed = benchmark(needleman_wunsch, s1, s2)
+    print(f"NW time: {elapsed:.6f}s")
+
+    result, elapsed = benchmark(hirschberg, s1, s2)
+    print(f"Hirschberg time: {elapsed:.6f}s")
 
     pairwise_results, pairwise_lengths = benchmark_pairwise_runtime()
     mem_lengths, nw_mem, hb_mem        = benchmark_memory()

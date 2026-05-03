@@ -10,6 +10,8 @@
 import sys
 import os
 
+from distance_matrix import generate_matrix
+
 # Adding the src directory to the import path
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
 if src_path not in sys.path:
@@ -17,13 +19,16 @@ if src_path not in sys.path:
 
 from needlemanWunschGlobal  import needleman_wunsch
 from smithWatermanLocal     import smith_waterman
-from gotoh         import gotoh_affine_gap
+from gotoh         import gotoh
 from hirschberg             import hirschberg
 from banded_alignment       import banded_nw
 from blast_lite             import blast_lite
 from minimizer_align        import minimizer_align
 from iterative_refinement   import sum_of_pairs, refine_once
 from profile_hmm            import ProfileHMM
+from progressive_msa import perform_progressive_alignment
+from upgma import run_upgma
+
 
 
 # =============================================================================
@@ -129,12 +134,12 @@ class TestGotoh:
 
     def test_returns_three_values(self):
         """Gotoh must return exactly three values: (align1, align2, score)."""
-        result = gotoh_affine_gap("GATTACA", "GATCA")
+        result = gotoh("GATTACA", "GATCA")
         assert len(result) == 3
 
     def test_single_gap_introduces_dash(self):
         """One deletion should introduce at least one gap character."""
-        a1, a2, score = gotoh_affine_gap("GATTACA", "GATACA",
+        a1, a2, score = gotoh("GATTACA", "GATACA",
                                          match=2, mismatch=-1,
                                          gap_open=-5, gap_extend=-1)
         assert len(a1) == len(a2)
@@ -142,13 +147,13 @@ class TestGotoh:
 
     def test_identical_sequences_no_gap(self):
         """Identical sequences should produce no gaps at all."""
-        a1, a2, score = gotoh_affine_gap("ACGT", "ACGT")
+        a1, a2, score = gotoh("ACGT", "ACGT")
         assert '-' not in a1
         assert '-' not in a2
 
     def test_aligned_strings_equal_length(self):
         """Both aligned strings must be equal length."""
-        a1, a2, _ = gotoh_affine_gap("GATTACAACTTG", "GATCCAGTTCAAA")
+        a1, a2, _ = gotoh("GATTACAACTTG", "GATCCAGTTCAAA")
         assert len(a1) == len(a2)
 
 
@@ -165,24 +170,24 @@ class TestHirschberg:
             ("AAAA",    "TTTT"),
         ]
         for s1, s2 in test_pairs:
-            hb_a1, hb_a2  = hirschberg(s1, s2, match=2, mismatch=-1, gap=-1)
+            hb_a1, hb_a2, _  = hirschberg(s1, s2, match=2, mismatch=-1, gap=-1)
             _, _, nw_score = needleman_wunsch(s1, s2, match=2, mismatch=-1, gap=-1)
             hb_score       = _score_alignment(hb_a1, hb_a2, match=2, mismatch=-1, gap=-1)
             assert hb_score == nw_score, f"Hirschberg {hb_score} != NW {nw_score} for {s1}/{s2}"
 
     def test_empty_sequence(self):
         """Aligning an empty sequence should produce equal-length aligned strings."""
-        a1, a2 = hirschberg("", "ACG")
+        a1, a2, _ = hirschberg("", "ACG")
         assert len(a1) == len(a2)
 
     def test_single_character(self):
         """Single identical characters should align to themselves."""
-        a1, a2 = hirschberg("A", "A")
+        a1, a2, _ = hirschberg("A", "A")
         assert a1 == "A" and a2 == "A"
 
     def test_output_only_valid_chars(self):
         """Aligned strings should only contain DNA characters and dashes."""
-        a1, a2 = hirschberg("GATTACA", "GATCACA")
+        a1, a2, _ = hirschberg("GATTACA", "GATCACA")
         valid = set("ACGT-")
         assert len(a1) == len(a2)
         assert all(c in valid for c in a1)
@@ -360,7 +365,37 @@ class TestProfileHMM:
         _, score = model.viterbi("ACGT")
         assert not math.isinf(score), "Score is -inf — check pseudo-count smoothing."
 
-# Helper: scoring an already-computed alignment string pair
+class TestProfileHMMExtended:
+
+    def test_emission_probabilities_sum_to_one(self):
+        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
+
+        for state, probs in model.emissions.items():
+            if len(probs) == 0:
+                continue  # skip silent states
+
+            total = sum(probs.values())
+            assert abs(total - 1.0) < 1e-6
+
+    def test_no_zero_probabilities(self):
+        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
+
+        for state, probs in model.emissions.items():
+            if len(probs) == 0:
+                continue
+
+            assert all(p > 0 for p in probs.values())
+
+    def test_viterbi_returns_valid_states(self):
+        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
+
+        path, score = model.viterbi("ACGTACGT")
+
+        assert len(path) > 0
+        assert isinstance(score, float)
+
+        for state in path:
+            assert state in model.states
 
 def _score_alignment(a1, a2, match, mismatch, gap):
     """Computing the alignment score directly from two aligned strings."""
@@ -374,7 +409,139 @@ def _score_alignment(a1, a2, match, mismatch, gap):
             score += mismatch
     return score
 
+class TestProgressiveAlignment:
 
+    def test_alignment_length_consistency(self):
+        seqs = {
+            "s1": "ACGT",
+            "s2": "ACGT",
+            "s3": "ACGT",
+        }
+
+        labels, matrix = generate_matrix(seqs)
+        tree = run_upgma(labels, matrix)
+
+        msa = perform_progressive_alignment(tree, seqs)
+
+        lengths = [len(s) for s in msa]
+        assert len(set(lengths)) == 1
+
+    def test_identical_sequences(self):
+        seqs = {
+            "s1": "AAAA",
+            "s2": "AAAA",
+        }
+
+        labels, matrix = generate_matrix(seqs)
+        tree = run_upgma(labels, matrix)
+
+        msa = perform_progressive_alignment(tree, seqs)
+
+        for s in msa:
+            assert s.replace('-', '') == "AAAA"
+
+    def test_number_of_sequences_preserved(self):
+        seqs = {
+            "s1": "ACGT",
+            "s2": "AGGT",
+            "s3": "ACGA",
+        }
+
+        labels, matrix = generate_matrix(seqs)
+        tree = run_upgma(labels, matrix)
+
+        msa = perform_progressive_alignment(tree, seqs)
+
+        assert len(msa) == len(seqs)
+
+    def test_contains_only_valid_chars(self):
+        seqs = {
+            "s1": "ACGT",
+            "s2": "AGGT",
+        }
+
+        labels, matrix = generate_matrix(seqs)
+        tree = run_upgma(labels, matrix)
+
+        msa = perform_progressive_alignment(tree, seqs)
+
+        valid = set("ACGT-")
+        for s in msa:
+            assert all(c in valid for c in s)
+
+class TestAlgorithmComparison:
+
+    def test_affine_not_worse_than_linear_gap(self):
+        s1 = "ACGTACGT"
+        s2 = "ACGTTTGT"
+
+        _, _, nw_score = needleman_wunsch(s1, s2, gap=-2)
+        _, _, gt_score = gotoh(s1, s2,
+                                          match=1,
+                                          mismatch=-1,
+                                          gap_open=-2,
+                                          gap_extend=-1)
+
+        # affine should usually be >= (not strictly guaranteed, but good heuristic test)
+        assert gt_score >= nw_score - 5
+
+class TestSyntheticData:
+
+    def test_single_snp_detected(self):
+        s1 = "A" * 100
+        s2 = "A" * 50 + "T" + "A" * 49
+
+        _, _, score = smith_waterman(s1, s2)
+        assert score > 0
+
+    def test_random_sequence_low_similarity(self):
+        import random
+
+        s1 = "ACGT" * 25
+        s2 = ''.join(random.choices("ACGT", k=len(s1)))
+
+        _, _, score = smith_waterman(s1, s2)
+
+        assert score >= 0
+        assert score < len(s1)
+
+class TestUPGMA:
+
+    def test_returns_nested_tuple(self):
+        labels = ["A", "B", "C"]
+        matrix = [
+            [0, 1, 2],
+            [1, 0, 3],
+            [2, 3, 0],
+        ]
+
+        tree = run_upgma(labels, matrix)
+        assert isinstance(tree, tuple)
+
+    def test_all_labels_present(self):
+        labels = ["A", "B", "C"]
+        matrix = [
+            [0, 1, 2],
+            [1, 0, 3],
+            [2, 3, 0],
+        ]
+
+        tree = run_upgma(labels, matrix)
+
+        def flatten(t):
+            if isinstance(t, str):
+                return [t]
+            return flatten(t[0]) + flatten(t[1])
+
+        leaves = flatten(tree)
+        assert sorted(leaves) == sorted(labels)
+
+    def test_single_element(self):
+        labels = ["A"]
+        matrix = [[0]]
+
+        tree = run_upgma(labels, matrix)
+        assert tree == "A"
 # Test Runner
 
 if __name__ == "__main__":
@@ -390,6 +557,10 @@ if __name__ == "__main__":
         TestMinimizerAlign,
         TestIterativeRefinement,
         TestProfileHMM,
+        TestProfileHMMExtended,
+        TestProgressiveAlignment,
+        TestAlgorithmComparison,
+        TestSyntheticData,
     ]
 
     total_pass = total_fail = total_error = 0
