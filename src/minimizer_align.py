@@ -1,18 +1,3 @@
-# For genome-scale sequences, even BLAST-style seeding can be slow.
-# Minimizers are a compact sketch of a sequence: for each window of size w,
-# we keep only the lexicographically smallest k-mer.
-# Two regions that are similar will tend to share minimizers.
-#
-# Full pipeline:
-#   1. get_minimizers()    — sketch each sequence, one minimizer per window
-#   2. find_anchors()      — find positions where both sequences share a minimizer
-#   3. chain_anchors()     — select the longest co-linear chain (DP, like LIS)
-#   4. fill_gaps_with_nw() — align the regions between chained anchors with NW
-#   5. minimizer_align()   — orchestrate all four steps
-#
-# Time complexity:  O(n log n) for sketching + O(n²) for chaining (naive)
-# Space complexity: O(n) for the sketch index
-
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -20,6 +5,9 @@ from needlemanWunschGlobal import needleman_wunsch
 
 # Step 1: Minimizer Sketching
 
+def greedy_similarity(seq1, seq2):
+    matches = sum(1 for a, b in zip(seq1, seq2) if a == b)
+    return matches / min(len(seq1), len(seq2))
 
 def get_minimizers(sequence, k, w):
     """
@@ -175,22 +163,7 @@ def fill_gaps_with_nw(query, target, chain):
 # Step 5: Full Pipeline
 
 def minimizer_align(query, target, k=4, w=8):
-    """
-    Running the complete minimizer-based approximate alignment:
-        sketch → anchor → chain → fill gaps with NW
 
-    Parameters
-    ----------
-    query, target : str  - input sequences
-    k             : int  - k-mer length  (larger = fewer, more specific anchors)
-    w             : int  - window size   (larger = sparser sketch)
-
-    Returns
-    -------
-    align_q, align_t : str   - aligned strings
-    score            : int   - approximate alignment score
-    chain            : list  - the selected anchor chain (for inspection)
-    """
     anchors = find_anchors(query, target, k, w)
 
     if not anchors:
@@ -205,7 +178,6 @@ def minimizer_align(query, target, k=4, w=8):
 
 
 if __name__ == "__main__":
-    print("=== Minimizer Alignment Demo ===")
 
     q = "GATTACAGATTACA"
     t = "GATTAGAGATTACA"
@@ -216,11 +188,20 @@ if __name__ == "__main__":
     print(f"Anchors used: {len(chain)}")
     print(f"Alignment:\n  {a_q}\n  {a_t}\n  Score: {score}")
 
+    similarity = greedy_similarity(a_q, a_t)
+    print(f"Percent identity: {similarity:.2%}")
+
     # Test 2: Identical sequences
     q2 = "ACGTACGTACGTACGT"
     a_q2, a_t2, score2, chain2 = minimizer_align(q2, q2, k=4, w=6)
     print(f"\nIdentical sequences — Score: {score2}, Anchors: {len(chain2)}")
 
+    similarity = greedy_similarity(a_q2, a_t2)
+    print(f"Percent identity: {similarity:.2%}")
+
     # Test 3: No common k-mers → fallback expected
     print("\nNo common minimizers:")
-    minimizer_align("AAAAAAA", "TTTTTTT", k=4, w=5)
+    a_q3, a_t3, score3, chain3=minimizer_align("AAAAAAA", "TTTTTTT", k=4, w=5)
+
+    similarity = greedy_similarity(a_q3, a_t3)
+    print(f"Percent identity: {similarity:.2%}")

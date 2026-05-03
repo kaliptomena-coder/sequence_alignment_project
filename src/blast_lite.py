@@ -10,23 +10,7 @@ def get_kmers(sequence, k):
 
 
 def extend_left(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=5):
-    """
-    Extending a seed match to the left using the X-drop stopping rule.
-    Stops when the score drops more than `threshold` below the running max.
 
-    Parameters
-    ----------
-    seq1, seq2        : str  - the full query and target sequences
-    i, j              : int  - positions immediately before the seed starts
-    match_score       : int  - reward for a match
-    mismatch_penalty  : int  - penalty for a mismatch
-    threshold         : int  - X-drop value (stop when score falls this much)
-
-    Returns
-    -------
-    l_ext1, l_ext2 : str  - left extensions for each sequence (reversed)
-    max_l_score    : int  - best score accumulated during extension
-    """
     l_score, max_l_score = 0, 0
     l_ext1, l_ext2 = "", ""
     curr_i, curr_j = i - 1, j - 1
@@ -50,22 +34,7 @@ def extend_left(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=
 
 
 def extend_right(seq1, seq2, i, j, match_score=2, mismatch_penalty=-1, threshold=5):
-    """
-    Extending a seed match to the right using the X-drop stopping rule.
 
-    Parameters
-    ----------
-    seq1, seq2        : str  - the full query and target sequences
-    i, j              : int  - positions right after the seed ends
-    match_score       : int  - reward for a match
-    mismatch_penalty  : int  - penalty for a mismatch
-    threshold         : int  - X-drop value
-
-    Returns
-    -------
-    r_ext1, r_ext2 : str  - right extensions for each sequence
-    max_r_score    : int  - best score accumulated during extension
-    """
     r_score, max_r_score = 0, 0
     r_ext1, r_ext2 = "", ""
     curr_i, curr_j = i, j
