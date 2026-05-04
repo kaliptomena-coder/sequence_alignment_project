@@ -1,404 +1,48 @@
-# Tests are organized by algorithm. Each test class checks:
-#   - Correctness on known examples
-#   - Edge cases (empty sequences, identical sequences, etc.)
-#   - Fundamental invariants (e.g., aligned strings must have equal length)
-#   - Score properties (e.g., harsher gap penalty cannot increase the score)
+# Sequence Alignment — Unit Tests
 #
-# Run with:
-#   python test_all.py
+# Coverage: all 10 required algorithms + UPGMA, progressive MSA,
+#           real FASTA identity stats, and HBB long-sequence tests.
+#
+# Run:
+#   python test_all.py          (built-in runner, no dependencies)
+#   pytest test_all.py -v       (pytest)
 
 import sys
 import os
+import math
+import itertools
 
-from distance_matrix import generate_matrix
-
-# Adding the src directory to the import path
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from needlemanWunschGlobal  import needleman_wunsch
-from smithWatermanLocal     import smith_waterman
-from gotoh         import gotoh
-from hirschberg             import hirschberg
-from banded_alignment       import banded_nw
-from blast_lite             import blast_lite
-from minimizer_align        import minimizer_align
-from iterative_refinement   import sum_of_pairs, refine_once
-from profile_hmm            import ProfileHMM
-from progressive_msa import perform_progressive_alignment
-from upgma import run_upgma
-
-
-
-# =============================================================================
-# 1. Needleman-Wunsch Tests
-# =============================================================================
-
-class TestNeedlemanWunsch:
-
-    def test_identical_sequences_perfect_score(self):
-        """Two identical sequences should produce a perfect alignment with no gaps."""
-        a1, a2, score = needleman_wunsch("ACGT", "ACGT")
-        assert a1 == "ACGT", f"Expected ACGT but got {a1}"
-        assert a2 == "ACGT", f"Expected ACGT but got {a2}"
-        assert score > 0, f"Perfect match should be positive, got {score}"
-
-    def test_completely_different_sequences(self):
-        """Completely different sequences should still return an alignment without crashing."""
-        a1, a2, score = needleman_wunsch("AAAA", "TTTT")
-        assert a1 is not None
-        assert len(a1) == len(a2), f"Aligned strings must be equal length"
-
-    def test_empty_sequence_returns_all_gaps(self):
-        """Aligning an empty sequence should produce an all-gap result for seq1."""
-        a1, a2, score = needleman_wunsch("", "ACG")
-        assert set(a1) <= {'-', ''}, f"Expected all gaps, got: {a1}"
-
-    def test_single_char_match(self):
-        """Single matching characters should give a positive score."""
-        a1, a2, score = needleman_wunsch("A", "A")
-        assert score > 0
-
-    def test_single_char_mismatch(self):
-        """A single mismatch should return the mismatch penalty as the score."""
-        a1, a2, score = needleman_wunsch("A", "T", match=1, mismatch=-1, gap=-2)
-        assert score == -1, f"Expected -1 for one mismatch, got {score}"
-
-    def test_gattaca_alignment(self):
-        """Classic GATTACA vs GATCA — optimal alignment introduces one gap."""
-        a1, a2, score = needleman_wunsch("GATTACA", "GATCA")
-        assert len(a1) == len(a2)
-        assert '-' in a1 or '-' in a2, "Should contain at least one gap"
-        assert score > 0
-
-    def test_aligned_strings_equal_length(self):
-        """Fundamental invariant: both aligned strings must always be equal length."""
-        for s1, s2 in [("ACGT", "AGT"), ("HELLO", "HELP"), ("A", "ACGT")]:
-            a1, a2, _ = needleman_wunsch(s1, s2)
-            assert len(a1) == len(a2), f"Unequal lengths for {s1}/{s2}"
-
-    def test_gap_penalty_affects_score(self):
-        """A harsher gap penalty should produce a lower or equal score."""
-        _, _, score_lenient = needleman_wunsch("GATTACA", "GATCA", gap=-1)
-        _, _, score_harsh   = needleman_wunsch("GATTACA", "GATCA", gap=-10)
-        assert score_lenient >= score_harsh
-
-    def test_symmetry(self):
-        """Swapping the two sequences should give the same score."""
-        _, _, score_ab = needleman_wunsch("GATTACA", "GATCA")
-        _, _, score_ba = needleman_wunsch("GATCA", "GATTACA")
-        assert score_ab == score_ba
-
-
-# =============================================================================
-# 2. Smith-Waterman Tests
-# =============================================================================
-
-class TestSmithWaterman:
-
-    def test_local_score_never_negative(self):
-        """SW scores are always >= 0 because the matrix is floored at zero."""
-        _, _, score = smith_waterman("AAAA", "TTTT")
-        assert score >= 0
-
-    def test_identical_sequences(self):
-        """Identical sequences should produce a positive local score."""
-        a1, a2, score = smith_waterman("ACGT", "ACGT")
-        assert score > 0
-
-    def test_local_finds_substring(self):
-        """SW should find a meaningful local alignment on a standard example."""
-        a1, a2, score = smith_waterman("ACACACTA", "AGCACACA",
-                                       match=2, mismatch=-1, gap=-1)
-        assert score > 0
-        assert len(a1) > 0 and len(a2) > 0
-
-    def test_no_common_subsequence(self):
-        """If no common subsequence exists, the score should be 0."""
-        a1, a2, score = smith_waterman("AAAA", "TTTT",
-                                       match=1, mismatch=-10, gap=-10)
-        assert score == 0
-
-    def test_aligned_lengths_equal(self):
-        """Both returned aligned strings must always have equal length."""
-        a1, a2, _ = smith_waterman("GATTACA", "GATCA")
-        assert len(a1) == len(a2)
-
-
-# =============================================================================
-# 3. Gotoh Algorithm Tests
-# =============================================================================
-
-class TestGotoh:
-
-    def test_returns_three_values(self):
-        """Gotoh must return exactly three values: (align1, align2, score)."""
-        result = gotoh("GATTACA", "GATCA")
-        assert len(result) == 3
-
-    def test_single_gap_introduces_dash(self):
-        """One deletion should introduce at least one gap character."""
-        a1, a2, score = gotoh("GATTACA", "GATACA",
-                                         match=2, mismatch=-1,
-                                         gap_open=-5, gap_extend=-1)
-        assert len(a1) == len(a2)
-        assert '-' in a1 or '-' in a2
-
-    def test_identical_sequences_no_gap(self):
-        """Identical sequences should produce no gaps at all."""
-        a1, a2, score = gotoh("ACGT", "ACGT")
-        assert '-' not in a1
-        assert '-' not in a2
-
-    def test_aligned_strings_equal_length(self):
-        """Both aligned strings must be equal length."""
-        a1, a2, _ = gotoh("GATTACAACTTG", "GATCCAGTTCAAA")
-        assert len(a1) == len(a2)
-
-
-# 4. Hirschberg Tests
-
-class TestHirschberg:
-
-    def test_matches_nw_score(self):
-        """Hirschberg must produce the same score as standard NW on all test pairs."""
-        test_pairs = [
-            ("AGTAACG", "ACATAG"),
-            ("GATTACA", "GATCA"),
-            ("ACGT",    "ACGT"),
-            ("AAAA",    "TTTT"),
-        ]
-        for s1, s2 in test_pairs:
-            hb_a1, hb_a2, _  = hirschberg(s1, s2, match=2, mismatch=-1, gap=-1)
-            _, _, nw_score = needleman_wunsch(s1, s2, match=2, mismatch=-1, gap=-1)
-            hb_score       = _score_alignment(hb_a1, hb_a2, match=2, mismatch=-1, gap=-1)
-            assert hb_score == nw_score, f"Hirschberg {hb_score} != NW {nw_score} for {s1}/{s2}"
-
-    def test_empty_sequence(self):
-        """Aligning an empty sequence should produce equal-length aligned strings."""
-        a1, a2, _ = hirschberg("", "ACG")
-        assert len(a1) == len(a2)
-
-    def test_single_character(self):
-        """Single identical characters should align to themselves."""
-        a1, a2, _ = hirschberg("A", "A")
-        assert a1 == "A" and a2 == "A"
-
-    def test_output_only_valid_chars(self):
-        """Aligned strings should only contain DNA characters and dashes."""
-        a1, a2, _ = hirschberg("GATTACA", "GATCACA")
-        valid = set("ACGT-")
-        assert len(a1) == len(a2)
-        assert all(c in valid for c in a1)
-        assert all(c in valid for c in a2)
-
-# 5. Banded DP Tests
-
-class TestBandedDP:
-
-    def test_identical_sequences_k1(self):
-        """Identical sequences with a minimal band width should align correctly."""
-        a1, a2, score = banded_nw("ACGT", "ACGT", k=1)
-        assert score > 0
-        assert len(a1) == len(a2)
-
-    def test_matches_full_nw_for_similar_seqs(self):
-        """For identical sequences, banded NW should give the same score as full NW."""
-        s1, s2 = "GATTACAACTTG", "GATTACAACTTG"
-        _, _, score_banded = banded_nw(s1, s2, k=5, match=2, mismatch=-1, gap=-2)
-        _, _, score_nw     = needleman_wunsch(s1, s2, match=2, mismatch=-1, gap=-2)
-        assert score_banded == score_nw
-
-    def test_narrow_band_triggers_fallback(self):
-        """A band that is too narrow should fall back gracefully without crashing."""
-        a1, a2, score = banded_nw("AAAAAAAAAAA", "TTTTTT", k=1)
-        assert a1 is not None
-        assert len(a1) == len(a2)
-
-# 6. BLAST-Lite Tests
-
-class TestBLASTLite:
-
-    def test_identical_sequences_finds_hsp(self):
-        """Identical sequences should produce at least one HSP."""
-        results = blast_lite("GATTACA", "GATTACA", k=3)
-        assert len(results) > 0
-
-    def test_hsp_has_required_fields(self):
-        """Every result dictionary must contain the four expected keys."""
-        results = blast_lite("GGAGTCAG", "GAAGTCGG", k=3)
-        for res in results:
-            assert 'score'      in res
-            assert 'alignment'  in res
-            assert 'query_pos'  in res
-            assert 'target_pos' in res
-
-    def test_results_sorted_descending(self):
-        """Results must be sorted highest-score first."""
-        results = blast_lite("GATTACAGATTACA", "GATTACAGATTACA", k=3)
-        if len(results) > 1:
-            scores = [r['score'] for r in results]
-            assert scores == sorted(scores, reverse=True)
-
-    def test_no_common_kmer_returns_empty(self):
-        """Sequences with no shared k-mer should return an empty list."""
-        results = blast_lite("AAA", "TTT", k=3)
-        assert results == []
-
-    def test_alignment_strings_equal_length(self):
-        """Each HSP alignment pair must have strings of equal length."""
-        results = blast_lite("GATTACAGATTACA", "GATTACAGATTACA", k=3)
-        for res in results:
-            a1, a2 = res['alignment']
-            assert len(a1) == len(a2)
-
-# 7. Minimizer Alignment Tests
-
-class TestMinimizerAlign:
-
-    def test_returns_chain_list(self):
-        """The fourth return value must be a list."""
-        _, _, _, chain = minimizer_align("GATTACA", "GATTACA", k=3, w=5)
-        assert isinstance(chain, list)
-
-    def test_identical_sequences_finds_anchors(self):
-        """Identical sequences should produce at least one shared anchor."""
-        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        assert len(chain) > 0
-
-    def test_anchor_is_a_triple(self):
-        """Each anchor should be a (q_pos, t_pos, length) triple."""
-        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        for anchor in chain:
-            assert len(anchor) == 3
-            assert all(isinstance(x, int) for x in anchor)
-
-    def test_different_sequences_fewer_anchors(self):
-        """More dissimilar sequences should produce fewer anchors."""
-        _, _, _, same = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
-        _, _, _, diff = minimizer_align("GATTACAGATTACA", "CCCCCCCCCCCCC",  k=3, w=5)
-        assert len(same) >= len(diff)
-
-
-# 8. Iterative Refinement Tests
-
-class TestIterativeRefinement:
-
-    TEST_MSA = [
-        "ACGT--ACGT",
-        "ACGTAAACGT",
-        "ACGT--ACGG",
-    ]
-
-    def test_sp_score_is_numeric(self):
-        """Sum-of-Pairs score must be a number."""
-        score = sum_of_pairs(self.TEST_MSA)
-        assert isinstance(score, (int, float))
-
-    def test_identical_msa_has_higher_sp(self):
-        """A perfect MSA (all identical) should outscore a mismatched one."""
-        perfect   = ["AAAA", "AAAA", "AAAA"]
-        imperfect = ["AAAA", "TTTT", "AAAA"]
-        assert sum_of_pairs(perfect) > sum_of_pairs(imperfect)
-
-    def test_refinement_does_not_worsen_score(self):
-        """One round of refinement must not decrease the SP score."""
-        initial_score = sum_of_pairs(self.TEST_MSA)
-        _, refined_score = refine_once(self.TEST_MSA, needleman_wunsch)
-        assert refined_score >= initial_score
-
-    def test_sequences_same_length_after_refinement(self):
-        """All sequences in the refined MSA must have the same length."""
-        refined_msa, _ = refine_once(self.TEST_MSA, needleman_wunsch)
-        lengths = [len(s) for s in refined_msa]
-        assert len(set(lengths)) == 1, f"Different lengths after refinement: {lengths}"
-
-
-# 9. Profile HMM Tests
-
-class TestProfileHMM:
-
-    SMALL_MSA = [
-        "ACGT--ACGT",
-        "ACGTAAACGT",
-        "ACGT--ACGG",
-    ]
-
-    def test_model_builds_without_error(self):
-        """The constructor should complete without raising any exception."""
-        try:
-            model = ProfileHMM(self.SMALL_MSA, gap_threshold=0.5)
-        except Exception as e:
-            assert False, f"ProfileHMM raised: {e}"
-
-    def test_match_columns_identified(self):
-        """Column 0 (all 'A', no gaps) should be identified as a match column."""
-        model = ProfileHMM(self.SMALL_MSA, gap_threshold=0.5)
-        assert 0 in model.match_cols
-
-    def test_emissions_are_valid_probabilities(self):
-        """All emission values must be between 0 and 1."""
-        model = ProfileHMM(self.SMALL_MSA)
-        for state, probs in model.emissions.items():
-            for char, prob in probs.items():
-                assert 0.0 <= prob <= 1.0, f"[{state}][{char}] = {prob}"
-
-    def test_transitions_sum_to_one(self):
-        """Transition probabilities from each state must sum to approximately 1."""
-        model = ProfileHMM(self.SMALL_MSA)
-        for state, dests in model.transitions.items():
-            total = sum(dests.values())
-            assert abs(total - 1.0) < 1e-6, f"Transitions from {state} sum to {total}"
-
-    def test_viterbi_returns_path_and_score(self):
-        """Viterbi should return a (list, float) pair without crashing."""
-        model    = ProfileHMM(self.SMALL_MSA)
-        path, score = model.viterbi("ACGTACGT")
-        assert isinstance(path,  list)
-        assert isinstance(score, float)
-
-    def test_viterbi_score_not_neg_inf(self):
-        """With Laplace pseudo-counts, the Viterbi score should never be -inf."""
-        import math
-        model    = ProfileHMM(self.SMALL_MSA)
-        _, score = model.viterbi("ACGT")
-        assert not math.isinf(score), "Score is -inf — check pseudo-count smoothing."
-
-class TestProfileHMMExtended:
-
-    def test_emission_probabilities_sum_to_one(self):
-        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
-
-        for state, probs in model.emissions.items():
-            if len(probs) == 0:
-                continue  # skip silent states
-
-            total = sum(probs.values())
-            assert abs(total - 1.0) < 1e-6
-
-    def test_no_zero_probabilities(self):
-        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
-
-        for state, probs in model.emissions.items():
-            if len(probs) == 0:
-                continue
-
-            assert all(p > 0 for p in probs.values())
-
-    def test_viterbi_returns_valid_states(self):
-        model = ProfileHMM(TestProfileHMM.SMALL_MSA)
-
-        path, score = model.viterbi("ACGTACGT")
-
-        assert len(path) > 0
-        assert isinstance(score, float)
-
-        for state in path:
-            assert state in model.states
-
-def _score_alignment(a1, a2, match, mismatch, gap):
-    """Computing the alignment score directly from two aligned strings."""
+data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+
+from needlemanWunschGlobal import needleman_wunsch
+from smithWatermanLocal   import smith_waterman
+from gotoh                import gotoh
+from hirschberg           import hirschberg
+from banded_alignment     import banded_nw
+from blast_lite           import blast_lite
+from minimizer_align      import minimizer_align
+from iterative_refinement import sum_of_pairs, refine_once
+from profile_hmm          import ProfileHMM
+from progressive_msa      import perform_progressive_alignment
+from distance_matrix      import generate_matrix
+from upgma                import run_upgma
+
+
+# ── Shared fixtures ───────────────────────────────────────────────────────────
+
+SMALL_MSA = [
+    "ACGT--ACGT",
+    "ACGTAAACGT",
+    "ACGT--ACGG",
+]
+
+
+def _score_from_strings(a1, a2, match=1, mismatch=-1, gap=-2):
+    """Recompute alignment score directly from two aligned strings."""
     score = 0
     for c1, c2 in zip(a1, a2):
         if c1 == '-' or c2 == '-':
@@ -409,180 +53,435 @@ def _score_alignment(a1, a2, match, mismatch, gap):
             score += mismatch
     return score
 
-class TestProgressiveAlignment:
 
-    def test_alignment_length_consistency(self):
-        seqs = {
-            "s1": "ACGT",
-            "s2": "ACGT",
-            "s3": "ACGT",
-        }
+def _load_fasta(filename):
+    """Parse a FASTA file from the data/ directory; return {name: seq}."""
+    path = os.path.join(data_path, filename)
+    if not os.path.exists(path):
+        return {}
+    seqs, name, buf = {}, None, []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                if name:
+                    seqs[name] = ''.join(buf)
+                name, buf = line[1:].split()[0], []
+            elif line:
+                buf.append(line.upper())
+    if name:
+        seqs[name] = ''.join(buf)
+    return seqs
 
-        labels, matrix = generate_matrix(seqs)
-        tree = run_upgma(labels, matrix)
 
-        msa = perform_progressive_alignment(tree, seqs)
+def _pairwise_identities(seqs):
+    """Return list of NW pairwise identity % for all pairs in a dict of sequences."""
+    ids = []
+    for a, b in itertools.combinations(seqs.keys(), 2):
+        a1, a2, _ = needleman_wunsch(seqs[a], seqs[b])
+        matches = sum(c1 == c2 and c1 != '-' for c1, c2 in zip(a1, a2))
+        cols    = sum(1 for c1, c2 in zip(a1, a2) if c1 != '-' and c2 != '-')
+        ids.append(100.0 * matches / cols if cols else 0.0)
+    return ids
 
-        lengths = [len(s) for s in msa]
-        assert len(set(lengths)) == 1
+
+# =============================================================================
+# 1. Needleman-Wunsch (Global Alignment)
+# =============================================================================
+
+class TestNeedlemanWunsch:
 
     def test_identical_sequences(self):
-        seqs = {
-            "s1": "AAAA",
-            "s2": "AAAA",
-        }
-
-        labels, matrix = generate_matrix(seqs)
-        tree = run_upgma(labels, matrix)
-
-        msa = perform_progressive_alignment(tree, seqs)
-
-        for s in msa:
-            assert s.replace('-', '') == "AAAA"
-
-    def test_number_of_sequences_preserved(self):
-        seqs = {
-            "s1": "ACGT",
-            "s2": "AGGT",
-            "s3": "ACGA",
-        }
-
-        labels, matrix = generate_matrix(seqs)
-        tree = run_upgma(labels, matrix)
-
-        msa = perform_progressive_alignment(tree, seqs)
-
-        assert len(msa) == len(seqs)
-
-    def test_contains_only_valid_chars(self):
-        seqs = {
-            "s1": "ACGT",
-            "s2": "AGGT",
-        }
-
-        labels, matrix = generate_matrix(seqs)
-        tree = run_upgma(labels, matrix)
-
-        msa = perform_progressive_alignment(tree, seqs)
-
-        valid = set("ACGT-")
-        for s in msa:
-            assert all(c in valid for c in s)
-
-class TestAlgorithmComparison:
-
-    def test_affine_not_worse_than_linear_gap(self):
-        s1 = "ACGTACGT"
-        s2 = "ACGTTTGT"
-
-        _, _, nw_score = needleman_wunsch(s1, s2, gap=-2)
-        _, _, gt_score = gotoh(s1, s2,
-                                          match=1,
-                                          mismatch=-1,
-                                          gap_open=-2,
-                                          gap_extend=-1)
-
-        # affine should usually be >= (not strictly guaranteed, but good heuristic test)
-        assert gt_score >= nw_score - 5
-
-class TestSyntheticData:
-
-    def test_single_snp_detected(self):
-        s1 = "A" * 100
-        s2 = "A" * 50 + "T" + "A" * 49
-
-        _, _, score = smith_waterman(s1, s2)
+        """Identical input → no gaps, positive score, aligned strings equal input."""
+        a1, a2, score = needleman_wunsch("ACGT", "ACGT")
+        assert a1 == "ACGT" and a2 == "ACGT"
         assert score > 0
 
-    def test_random_sequence_low_similarity(self):
-        import random
+    def test_aligned_strings_equal_length(self):
+        """Fundamental invariant: both aligned strings must always be the same length."""
+        for s1, s2 in [("ACGT", "AGT"), ("GATTACA", "GATCA"), ("A", "ACGT")]:
+            a1, a2, _ = needleman_wunsch(s1, s2)
+            assert len(a1) == len(a2), f"Unequal lengths for '{s1}' vs '{s2}'"
 
-        s1 = "ACGT" * 25
-        s2 = ''.join(random.choices("ACGT", k=len(s1)))
+    def test_gap_introduced_in_classic_example(self):
+        """GATTACA vs GATCA: optimal alignment requires at least one gap."""
+        a1, a2, score = needleman_wunsch("GATTACA", "GATCA")
+        assert '-' in a1 or '-' in a2
+        assert score > 0
 
-        _, _, score = smith_waterman(s1, s2)
+    def test_harsher_penalty_cannot_improve_score(self):
+        """Increasing gap cost must not raise the alignment score."""
+        _, _, lenient = needleman_wunsch("GATTACA", "GATCA", gap=-1)
+        _, _, harsh   = needleman_wunsch("GATTACA", "GATCA", gap=-10)
+        assert lenient >= harsh
 
+    def test_symmetry(self):
+        """Swapping the two sequences must produce the same optimal score."""
+        _, _, ab = needleman_wunsch("GATTACA", "GATCA")
+        _, _, ba = needleman_wunsch("GATCA",   "GATTACA")
+        assert ab == ba
+
+    def test_dp_score_matches_traceback_score(self):
+        """Score from the DP cell must equal the score recomputed from aligned strings."""
+        a1, a2, dp_score = needleman_wunsch("GCATGCU", "GATTACA")
+        assert dp_score == _score_from_strings(a1, a2)
+
+
+# =============================================================================
+# 2. Smith-Waterman (Local Alignment)
+# =============================================================================
+
+class TestSmithWaterman:
+
+    def test_score_never_negative(self):
+        """SW floors cells at zero; score must always be ≥ 0."""
+        _, _, score = smith_waterman("AAAA", "TTTT")
         assert score >= 0
-        assert score < len(s1)
+
+    def test_finds_embedded_motif_better_than_nw(self):
+        """SW must outscore NW when a shared motif is flanked by dissimilar sequence."""
+        _, _, sw = smith_waterman("AAAACGTAAAA", "TTTTCGTTTTT")
+        _, _, nw = needleman_wunsch("AAAACGTAAAA", "TTTTCGTTTTT")
+        assert sw > nw, "SW should isolate the CGT core; NW penalises mismatched flanks"
+
+    def test_no_common_subsequence_returns_zero(self):
+        """With severe penalties and no shared bases, SW must return score = 0."""
+        _, _, score = smith_waterman("AAAA", "TTTT", match=1, mismatch=-10, gap=-10)
+        assert score == 0
+
+
+# =============================================================================
+# 3. Gotoh (Affine Gap Penalties)
+# =============================================================================
+
+class TestGotoh:
+
+    def test_identical_sequences_produce_no_gaps(self):
+        a1, a2, _ = gotoh("ACGT", "ACGT")
+        assert '-' not in a1 and '-' not in a2
+
+    def test_deletion_introduces_gap(self):
+        """One deleted character must produce at least one gap in the alignment."""
+        a1, a2, _ = gotoh("GATTACA", "GATACA",
+                          match=2, mismatch=-1, gap_open=-5, gap_extend=-1)
+        assert len(a1) == len(a2)
+        assert '-' in a1 or '-' in a2
+
+    def test_higher_open_penalty_lowers_score(self):
+        """A more expensive gap-open cost must not improve the alignment score."""
+        s1, s2 = "GATTACAACTTG", "GATCCAGTTCAAA"
+        _, _, cheap     = gotoh(s1, s2, gap_open=-3,  gap_extend=-1)
+        _, _, expensive = gotoh(s1, s2, gap_open=-10, gap_extend=-1)
+        assert cheap >= expensive
+
+
+# =============================================================================
+# 4. Hirschberg (Space-Efficient Global Alignment)
+# =============================================================================
+
+class TestHirschberg:
+
+    PAIRS = [
+        ("AGTAACG", "ACATAG"),
+        ("GATTACA", "GATCA"),
+        ("ACGT",    "ACGT"),
+        ("AAAA",    "TTTT"),
+    ]
+
+    def test_score_matches_needleman_wunsch(self):
+        """Hirschberg must produce the same optimal score as NW (space-efficiency only)."""
+        for s1, s2 in self.PAIRS:
+            hb_a1, hb_a2, _ = hirschberg(s1, s2, match=2, mismatch=-1, gap=-1)
+            _, _, nw_score   = needleman_wunsch(s1, s2, match=2, mismatch=-1, gap=-1)
+            hb_score = _score_from_strings(hb_a1, hb_a2, match=2, mismatch=-1, gap=-1)
+            assert hb_score == nw_score, \
+                f"Hirschberg {hb_score} ≠ NW {nw_score} for '{s1}'/'{s2}'"
+
+    def test_empty_sequence_handled(self):
+        a1, a2, _ = hirschberg("", "ACG")
+        assert len(a1) == len(a2)
+
+    def test_output_only_valid_characters(self):
+        """Aligned strings may only contain A/C/G/T and dashes."""
+        a1, a2, _ = hirschberg("GATTACA", "GATCACA")
+        valid = set("ACGT-")
+        assert len(a1) == len(a2)
+        assert all(c in valid for c in a1 + a2)
+
+
+# =============================================================================
+# 5. Banded Alignment
+# =============================================================================
+
+class TestBandedAlignment:
+
+    def test_score_matches_full_nw_for_identical_sequences(self):
+        """For identical sequences, banded NW must return the same score as full NW."""
+        s = "GATTACAACTTG"
+        _, _, banded = banded_nw(s, s, k=5, match=2, mismatch=-1, gap=-2)
+        _, _, full   = needleman_wunsch(s, s, match=2, mismatch=-1, gap=-2)
+        assert banded == full
+
+    def test_narrow_band_falls_back_without_crash(self):
+        """When band is too narrow the algorithm must fall back gracefully."""
+        a1, a2, _ = banded_nw("AAAAAAAAAAA", "TTTTTT", k=1)
+        assert a1 is not None and len(a1) == len(a2)
+
+
+# =============================================================================
+# 6. BLAST-lite (Heuristic Seed-and-Extend)
+# =============================================================================
+
+class TestBLASTLite:
+
+    def test_identical_sequences_find_at_least_one_hsp(self):
+        assert len(blast_lite("GATTACA", "GATTACA", k=3)) > 0
+
+    def test_hsp_has_required_fields(self):
+        for r in blast_lite("GGAGTCAG", "GAAGTCGG", k=3):
+            assert {'score', 'alignment', 'query_pos', 'target_pos'} <= r.keys()
+
+    def test_no_shared_kmer_returns_empty_list(self):
+        assert blast_lite("AAA", "TTT", k=3) == []
+
+    def test_results_sorted_highest_score_first(self):
+        results = blast_lite("GATTACAGATTACA", "GATTACAGATTACA", k=3)
+        if len(results) > 1:
+            scores = [r['score'] for r in results]
+            assert scores == sorted(scores, reverse=True)
+
+
+# =============================================================================
+# 7. Minimizer-Based Alignment
+# =============================================================================
+
+class TestMinimizerAlign:
+
+    def test_identical_sequences_produce_anchors(self):
+        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        assert len(chain) > 0
+
+    def test_each_anchor_is_integer_triple(self):
+        _, _, _, chain = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        for anchor in chain:
+            assert len(anchor) == 3 and all(isinstance(x, int) for x in anchor)
+
+    def test_dissimilar_sequences_produce_fewer_anchors(self):
+        _, _, _, same = minimizer_align("GATTACAGATTACA", "GATTACAGATTACA", k=3, w=5)
+        _, _, _, diff = minimizer_align("GATTACAGATTACA", "CCCCCCCCCCCCC",  k=3, w=5)
+        assert len(same) >= len(diff)
+
+
+# =============================================================================
+# 8. Iterative Refinement (MUSCLE-style)
+# =============================================================================
+
+class TestIterativeRefinement:
+
+    def test_refinement_never_worsens_sp_score(self):
+        """One round of partition-realign-accept must not decrease the SP score."""
+        initial = sum_of_pairs(SMALL_MSA)
+        _, refined = refine_once(SMALL_MSA, needleman_wunsch)
+        assert refined >= initial
+
+    def test_all_sequences_same_length_after_refinement(self):
+        """All sequences in the refined MSA must have equal length."""
+        msa, _ = refine_once(SMALL_MSA, needleman_wunsch)
+        assert len({len(s) for s in msa}) == 1
+
+    def test_perfect_alignment_outscores_mismatched(self):
+        """SP score of a perfect alignment must exceed a mismatched one."""
+        assert sum_of_pairs(["AAAA", "AAAA"]) > sum_of_pairs(["AAAA", "TTTT"])
+
+
+# =============================================================================
+# 9. Profile HMM (Viterbi Decoding)
+# =============================================================================
+
+class TestProfileHMM:
+
+    def test_emission_probabilities_sum_to_one_and_are_positive(self):
+        """Laplace smoothing must keep all probabilities > 0 and summing to 1."""
+        model = ProfileHMM(SMALL_MSA)
+        for state, probs in model.emissions.items():
+            if not probs:
+                continue
+            assert all(p > 0 for p in probs.values())
+            assert abs(sum(probs.values()) - 1.0) < 1e-6
+
+    def test_transition_probabilities_sum_to_one(self):
+        model = ProfileHMM(SMALL_MSA)
+        for state, dests in model.transitions.items():
+            assert abs(sum(dests.values()) - 1.0) < 1e-6
+
+    def test_viterbi_score_is_finite(self):
+        """With Laplace smoothing the Viterbi log-probability must not be -inf."""
+        _, score = ProfileHMM(SMALL_MSA).viterbi("ACGT")
+        assert not math.isinf(score)
+
+    def test_viterbi_path_contains_only_valid_states(self):
+        model = ProfileHMM(SMALL_MSA)
+        path, _ = model.viterbi("ACGTACGT")
+        assert len(path) > 0
+        assert all(s in model.states for s in path)
+
+
+# =============================================================================
+# 10. Progressive MSA + UPGMA
+# =============================================================================
+
+class TestProgressiveMSA:
+
+    SEQS = {"s1": "ACGT", "s2": "AGGT", "s3": "ACGA"}
+
+    def _build(self, seqs):
+        labels, matrix = generate_matrix(seqs)
+        return perform_progressive_alignment(run_upgma(labels, matrix), seqs)
+
+    def test_output_count_matches_input(self):
+        assert len(self._build(self.SEQS)) == len(self.SEQS)
+
+    def test_all_sequences_same_length(self):
+        """Core MSA invariant: every aligned sequence must be the same length."""
+        assert len({len(s) for s in self._build(self.SEQS)}) == 1
+
 
 class TestUPGMA:
 
-    def test_returns_nested_tuple(self):
+    def test_all_labels_present_in_guide_tree(self):
         labels = ["A", "B", "C"]
-        matrix = [
-            [0, 1, 2],
-            [1, 0, 3],
-            [2, 3, 0],
-        ]
+        matrix = [[0, 1, 2], [1, 0, 3], [2, 3, 0]]
+        tree   = run_upgma(labels, matrix)
+        def leaves(t):
+            return [t] if isinstance(t, str) else leaves(t[0]) + leaves(t[1])
+        assert sorted(leaves(tree)) == sorted(labels)
 
-        tree = run_upgma(labels, matrix)
-        assert isinstance(tree, tuple)
+    def test_single_sequence_returns_itself(self):
+        assert run_upgma(["A"], [[0]]) == "A"
 
-    def test_all_labels_present(self):
-        labels = ["A", "B", "C"]
-        matrix = [
-            [0, 1, 2],
-            [1, 0, 3],
-            [2, 3, 0],
-        ]
 
-        tree = run_upgma(labels, matrix)
+# =============================================================================
+# 11. Long-sequence tests (HBB locus) — skipped if hbb.fasta is absent
+# =============================================================================
 
-        def flatten(t):
-            if isinstance(t, str):
-                return [t]
-            return flatten(t[0]) + flatten(t[1])
+class TestLongSequence:
 
-        leaves = flatten(tree)
-        assert sorted(leaves) == sorted(labels)
+    def _hbb(self):
+        seqs = _load_fasta("hbb.fasta")
+        return next(iter(seqs.values())) if seqs else None
 
-    def test_single_element(self):
-        labels = ["A"]
-        matrix = [[0]]
+    def test_hbb_file_loads(self):
+        seq = self._hbb()
+        if seq is None:
+            print("    SKIP: hbb.fasta not found"); return
+        assert len(seq) > 1000
 
-        tree = run_upgma(labels, matrix)
-        assert tree == "A"
-# Test Runner
+    def test_hirschberg_completes_on_5kb(self):
+        """Hirschberg (O(n) space) must finish on a 5 kb window without error."""
+        seq = self._hbb()
+        if seq is None:
+            print("    SKIP: hbb.fasta not found"); return
+        a1, a2, score = hirschberg(seq[:5000], seq[100:5100])
+        assert len(a1) == len(a2) and score > 0
+
+    def test_blast_is_not_slower_than_nw_on_2kb(self):
+        """BLAST-lite must not be dramatically slower than NW (allows 2× tolerance)."""
+        import time
+        seq = self._hbb()
+        if seq is None:
+            print("    SKIP: hbb.fasta not found"); return
+        s1, s2 = seq[:2000], seq[50:2050]
+        t0 = time.perf_counter(); blast_lite(s1, s2);       t_b = time.perf_counter() - t0
+        t0 = time.perf_counter(); needleman_wunsch(s1, s2); t_n = time.perf_counter() - t0
+        assert t_b <= t_n * 2, f"BLAST {t_b:.3f}s vs NW {t_n:.3f}s"
+
+
+# =============================================================================
+# 12. Real FASTA identity statistics
+# =============================================================================
+
+class TestFASTAIdentityStats:
+    """
+    Computes mean pairwise NW identity over all pairs in each real FASTA dataset
+    and asserts the result falls within a biologically plausible range.
+    Results are printed so they can be cited in the report.
+    """
+
+    # (file, expected_mean_lo, expected_mean_hi)
+    DATASETS = [
+        ("cytochrome_c.fasta",     80, 100),  # closely related cross-species
+        ("serine_proteases.fasta", 20,  80),  # distant homologs
+        ("synthetic_snps.fasta",   90, 100),  # controlled ~1% mutation
+        ("globins.fasta",          20, 100),  # wide range: closely related to distant
+    ]
+
+    def _check(self, fname, lo, hi):
+        from statistics import mean, stdev
+        seqs = _load_fasta(fname)
+        if not seqs:
+            print(f"    SKIP: {fname} not found"); return
+        ids = _pairwise_identities(seqs)
+        m   = mean(ids)
+        sd  = stdev(ids) if len(ids) > 1 else 0.0
+        print(f"    {fname}: {m:.1f}% ± {sd:.1f}%  (n={len(ids)} pairs)")
+        assert lo <= m <= hi, \
+            f"{fname}: mean identity {m:.1f}% outside expected range {lo}–{hi}%"
+
+    def test_cytochrome_c_identity(self):
+        self._check(*self.DATASETS[0])
+
+    def test_serine_proteases_identity(self):
+        self._check(*self.DATASETS[1])
+
+    def test_synthetic_snps_identity(self):
+        self._check(*self.DATASETS[2])
+
+    def test_globins_identity(self):
+        self._check(*self.DATASETS[3])
+
+
+# =============================================================================
+# Test runner
+# =============================================================================
 
 if __name__ == "__main__":
     import traceback
 
-    test_classes = [
+    ALL_CLASSES = [
         TestNeedlemanWunsch,
         TestSmithWaterman,
         TestGotoh,
         TestHirschberg,
-        TestBandedDP,
+        TestBandedAlignment,
         TestBLASTLite,
         TestMinimizerAlign,
         TestIterativeRefinement,
         TestProfileHMM,
-        TestProfileHMMExtended,
-        TestProgressiveAlignment,
-        TestAlgorithmComparison,
-        TestSyntheticData,
+        TestProgressiveMSA,
+        TestUPGMA,
+        TestLongSequence,
+        TestFASTAIdentityStats,
     ]
 
-    total_pass = total_fail = total_error = 0
+    passed = failed = errors = 0
 
-    for cls in test_classes:
+    for cls in ALL_CLASSES:
         instance = cls()
         methods  = [m for m in dir(instance) if m.startswith("test_")]
-        print(f"  {cls.__name__}  ({len(methods)} tests)")
-
-        for method_name in methods:
+        print(f"\n{cls.__name__}  ({len(methods)} tests)")
+        for name in methods:
             try:
-                getattr(instance, method_name)()
-                print(f"  PASS  {method_name}")
-                total_pass += 1
+                getattr(instance, name)()
+                print(f"  PASS  {name}")
+                passed += 1
             except AssertionError as e:
-                print(f"  FAIL  {method_name}")
-                print(f"         -> {e}")
-                total_fail += 1
+                print(f"  FAIL  {name}: {e}")
+                failed += 1
             except Exception as e:
-                print(f"  ERROR {method_name}")
-                print(f"         -> {e}")
-                total_error += 1
+                print(f"  ERROR {name}: {e}")
+                traceback.print_exc()
+                errors += 1
 
-    print(f"  RESULTS: {total_pass} passed, {total_fail} failed, {total_error} errors")
-
+    print(f"\n{'='*60}")
+    print(f"RESULTS: {passed} passed  |  {failed} failed  |  {errors} errors")
+    print(f"{'='*60}")

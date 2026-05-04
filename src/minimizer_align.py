@@ -167,7 +167,7 @@ def minimizer_align(query, target, k=4, w=8):
     anchors = find_anchors(query, target, k, w)
 
     if not anchors:
-        print("  No shared minimizers found. Falling back to full NW.")
+
         a1, a2, score = needleman_wunsch(query, target)
         return a1, a2, score, []
 
