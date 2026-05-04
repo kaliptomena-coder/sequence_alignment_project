@@ -1,0 +1,4 @@
+metric,value_pct
+Sensitivity (TPR),100.0
+Specificity (TNR),100.0
+False Positive Rate,0.0

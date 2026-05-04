@@ -1,0 +1,5 @@
+dataset,n_seqs,n_pairs,mean_identity_pct,sd_identity_pct,min_pct,max_pct
+globins.fasta,9,36,48.4,21.57,27.59,88.82
+cytochrome_c.fasta,3,3,91.43,2.86,88.57,94.29
+serine_proteases.fasta,5,10,51.79,10.68,35.9,73.0
+synthetic_snps.fasta,6,15,99.17,0.24,99.0,99.5

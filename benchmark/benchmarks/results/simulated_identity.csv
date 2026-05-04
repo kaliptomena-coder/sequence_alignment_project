@@ -1,0 +1,13 @@
+dataset_group,algorithm,identity_pct
+Closely related (globins),NW,90.0
+Closely related (globins),SW,90.3
+Closely related (globins),Gotoh,90.0
+Distant homologs (proteases),NW,62.63
+Distant homologs (proteases),SW,62.84
+Distant homologs (proteases),Gotoh,60.0
+Long sequences (simulated),NW,80.94
+Long sequences (simulated),SW,80.94
+Long sequences (simulated),Gotoh,80.0
+Synthetic SNPs,NW,95.0
+Synthetic SNPs,SW,95.0
+Synthetic SNPs,Gotoh,95.0

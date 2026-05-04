@@ -1,0 +1,4 @@
+length_bp,Hirschberg_s,BLAST_s,Minimizer_s,NW_memory_KB,Hirschberg_memory_KB
+1000,0.2569,0.2052,0.004011,39626.4,245.1
+2000,1.0531,0.9527,0.01109,163994.3,452.2
+5000,6.6906,5.6293,0.06159,nan,nan
