@@ -545,7 +545,7 @@ def make_plots(runtime_rows, memory_rows, blast_rows, gap_rows,
     ax1.legend(h1+h2, l1+l2, loc="upper right"); fig.tight_layout()
     save_fig(fig, "fig4_gap_sensitivity.png")
 
-    # Fig 6: Identity bar chart
+    # Fig 5: Identity bar chart
     if identity_table:
         groups     = list(identity_table.keys())
         algo_names = list(next(iter(identity_table.values())).keys())
@@ -556,11 +556,11 @@ def make_plots(runtime_rows, memory_rows, blast_rows, gap_rows,
         ax.set_xticks(x + w)
         ax.set_xticklabels([g.replace("\n", " ") for g in groups], fontsize=8)
         ax.set_ylabel("Sequence identity (%)"); ax.set_ylim(0, 105)
-        ax.set_title("Fig 6 — Alignment identity across dataset groups")
+        ax.set_title("Fig 5 — Alignment identity across dataset groups")
         ax.legend(); fig.tight_layout()
-        save_fig(fig, "fig6_identity_pct.png")
+        save_fig(fig, "fig5_identity_pct.png")
 
-    # Fig 9: Minimizer heatmap
+    # Fig 6: Minimizer heatmap
     ks = sorted({r[0] for r in minimizer_rows[1:]})
     ws = sorted({r[1] for r in minimizer_rows[1:]})
     grid = np.zeros((len(ks), len(ws)))
@@ -571,15 +571,15 @@ def make_plots(runtime_rows, memory_rows, blast_rows, gap_rows,
     ax.set_xticks(range(len(ws))); ax.set_xticklabels([f"w={w}" for w in ws])
     ax.set_yticks(range(len(ks))); ax.set_yticklabels([f"k={k}" for k in ks])
     ax.set_xlabel("Window size (w)"); ax.set_ylabel("k-mer size (k)")
-    ax.set_title("Fig 9 — Minimizer chain length heatmap")
+    ax.set_title("Fig 6 — Minimizer chain length heatmap")
     for ki in range(len(ks)):
         for wi in range(len(ws)):
             ax.text(wi, ki, int(grid[ki, wi]), ha="center", va="center",
                     color="white" if grid[ki, wi] > grid.max()*0.6 else "black")
     fig.colorbar(im, ax=ax, label="Chain length"); fig.tight_layout()
-    save_fig(fig, "fig9_minimizer_heatmap.png")
+    save_fig(fig, "fig6_minimizer_heatmap.png")
 
-    # Fig 10: HBB long-sequence runtime (if data available)
+    # Fig 7: HBB long-sequence runtime (if data available)
     if hbb_rows and len(hbb_rows) > 1 and hbb_rows[0][0] != "status":
         valid = [r for r in hbb_rows[1:] if isinstance(r[1], float)]
         if valid:
@@ -589,9 +589,9 @@ def make_plots(runtime_rows, memory_rows, blast_rows, gap_rows,
             ax.plot(Ls, [r[2] for r in valid], marker="s", label="BLAST-lite", color=C[1])
             ax.plot(Ls, [r[3] for r in valid], marker="^", label="Minimizer",  color=C[4])
             ax.set_xlabel("Subsequence length (bp)"); ax.set_ylabel("Runtime (s)")
-            ax.set_title("Fig 10 — Long-sequence runtime (HBB locus subsets)")
+            ax.set_title("Fig 7 — Long-sequence runtime (HBB locus subsets)")
             ax.legend(); fig.tight_layout()
-            save_fig(fig, "fig10_hbb_runtime.png")
+            save_fig(fig, "fig7_hbb_runtime.png")
 
 
 # Main

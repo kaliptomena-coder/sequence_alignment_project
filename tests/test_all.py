@@ -482,6 +482,4 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 errors += 1
 
-    print(f"\n{'='*60}")
     print(f"RESULTS: {passed} passed  |  {failed} failed  |  {errors} errors")
-    print(f"{'='*60}")
